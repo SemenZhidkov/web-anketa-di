@@ -2,823 +2,627 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Анкета замера времени ДИ</title>
   <style>
     :root {
-      --header-blue: #d9eaf7;
-      --dark-blue: #1f4e78;
-      --soft-gray: #f3f4f6;
-      --line-gray: #cbd5e1;
-      --tag-gray: #eef2f7;
-      --text: #172033;
-      --muted: #64748b;
+      --bg: #ffffff;
+      --bg-elevated: #ffffff;
       --surface: #ffffff;
-      --ok: #16794c;
-      --warn: #9a5b00;
+      --surface-soft: #fbfbfb;
+      --surface-tint: #ffffff;
+      
+      --text: #2f444e; /* Серый RGB R47 G68 B78 */
+      --text-soft: #76787a; /* Светло-серый RGB R118 G120 B122 */
+      --muted: #76787a;
+      --muted-light: rgba(118, 120, 122, 0.4);
+      
+      --primary: #8bc540; /* Зеленый RGB R139 G197 B64 */
+      --primary-dark: #74a832; /* Затемненный зеленый для hover */
+      --primary-soft: rgba(139, 197, 64, 0.15); /* Фон для активных/ghost элементов */
+      --primary-border: rgba(139, 197, 64, 0.4);
+      
+      --success: #8bc540; /* Для успешных состояний используем брендовый зеленый */
+      --success-soft: rgba(139, 197, 64, 0.15);
+      --success-border: rgba(139, 197, 64, 0.4);
+      
+      --warning: #9a6700;
+      --warning-soft: #fff6db;
+      --warning-border: #efd28a;
+      
       --danger: #b42318;
-      --focus: #2b6ea6;
-      --shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+      --danger-soft: #fff0ef;
+      --danger-border: #e7aaa4;
+      
+      --line: rgba(118, 120, 122, 0.25); /* Границы на основе светло-серого */
+      --line-strong: rgba(118, 120, 122, 0.45);
+      
+      --shadow-xs: 0 1px 2px rgba(47, 68, 78, 0.05); /* Тени на основе темно-серого */
+      --shadow-sm: 0 4px 12px rgba(47, 68, 78, 0.06);
+      --shadow-md: 0 10px 28px rgba(47, 68, 78, 0.09);
+      --shadow-lg: 0 18px 46px rgba(47, 68, 78, 0.14);
+      
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 22px;
+      --nav-height: 72px;
+      --focus: rgba(139, 197, 64, 0.35);
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      min-width: 360px;
-      scroll-behavior: smooth;
-    }
+    * { box-sizing: border-box; }
+    html { min-width: 320px; scroll-behavior: smooth; }
 
     body {
       margin: 0;
-      background: #f8fafc;
-      color: var(--text);
-      font-family: Arial, "Helvetica Neue", sans-serif;
+      font-family: Inter, Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
       font-size: 15px;
-      line-height: 1.45;
+      line-height: 1.5;
+      letter-spacing: -0.005em;
+      background: #ffffff;
+      color: var(--text);
     }
 
-    button,
-    input,
-    select,
-    textarea {
-      font: inherit;
-    }
+    h1 { font-size: 18px; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+    h2 { font-size: 17px; line-height: 1.25; font-weight: 750; margin: 0; }
+    h3 { font-size: 15px; line-height: 1.3; font-weight: 750; margin: 0; }
+    p { margin: 0; }
 
+    button, input, select, textarea { font: inherit; }
+
+    /* Buttons */
     button {
-      min-height: 40px;
-      border: 1px solid #aebdd0;
-      border-radius: 6px;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--line-strong);
       background: var(--surface);
       color: var(--text);
+      padding: 9px 14px;
+      font-weight: 700;
       cursor: pointer;
-      padding: 8px 12px;
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
     }
-
-    button:hover:not(:disabled) {
-      background: #f2f7fb;
-      border-color: #7fa2c2;
-    }
-
-    button:disabled {
-      color: #94a3b8;
-      cursor: not-allowed;
-      background: #f8fafc;
-    }
-
+    button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-xs); }
+    button:active:not(:disabled) { transform: translateY(0); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    
     button.primary {
-      background: var(--dark-blue);
-      border-color: var(--dark-blue);
-      color: #ffffff;
+      background: var(--primary);
+      border-color: var(--primary);
+      color: var(--surface); /* Белый текст, или можно --text (темно-серый). Зависит от контраста. */
+      color: #ffffff; /* Если белый будет сливаться, изменим. Обычно яркий зеленый лучше смотрится с белым */
+      box-shadow: 0 4px 12px rgba(139, 197, 64, 0.25);
     }
-
-    button.primary:hover:not(:disabled) {
-      background: #173d61;
-      border-color: #173d61;
+    button.primary:hover:not(:disabled) { background: var(--primary-dark); border-color: var(--primary-dark); }
+    
+    button.ghost {
+      background: var(--primary-soft);
+      border: 1px solid var(--primary-border);
+      color: var(--primary-dark);
+      text-decoration: none;
+      box-shadow: none;
     }
+    button.ghost:hover:not(:disabled) { background: #deefe7; border-color: #b3cebe; }
 
     button.danger {
-      border-color: #d9a7a2;
+      border-color: var(--danger-border);
+      background: var(--danger-soft);
       color: var(--danger);
     }
+    button.danger:hover:not(:disabled) { background: #fee2df; }
 
-    button.ghost {
-      background: transparent;
-    }
-
-    input,
-    select,
-    textarea {
+    /* Inputs */
+    input, select, textarea {
       width: 100%;
-      border: 1px solid var(--line-gray);
-      border-radius: 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
       background: var(--surface);
       color: var(--text);
-      padding: 9px 10px;
-      min-height: 40px;
+      padding: 9px 12px;
+      min-height: 44px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    textarea { resize: vertical; min-height: 72px; }
+    input:focus, select:focus, textarea:focus, button:focus-visible {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--focus);
     }
 
-    textarea {
-      resize: vertical;
-      min-height: 72px;
+    .search-input {
+      margin-bottom: 14px;
+      min-height: 48px;
+      border-radius: 14px;
+      background: #ffffff;
+      box-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.02);
     }
 
-    input:focus,
-    select:focus,
-    textarea:focus,
-    button:focus-visible {
-      outline: 2px solid rgba(43, 110, 166, 0.25);
-      border-color: var(--focus);
-    }
-
-    h1,
-    h2,
-    h3,
-    p {
-      margin: 0;
-    }
-
-    h2 {
-      font-size: 18px;
-      line-height: 1.25;
-    }
-
-    h3 {
-      font-size: 16px;
-      line-height: 1.3;
-    }
-
+    /* Topbar */
     .topbar {
       position: sticky;
       top: 0;
-      z-index: 20;
-      border-bottom: 1px solid #a9c7df;
-      background: var(--header-blue);
-      box-shadow: var(--shadow);
+      z-index: 80;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
     }
-
     .topbar-inner {
       max-width: 1440px;
       margin: 0 auto;
       padding: 10px 16px;
-      display: grid;
-      grid-template-columns: minmax(220px, 1fr) auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       gap: 12px;
+      flex-wrap: wrap;
+    }
+    .brand h1 { color: var(--primary-dark); margin-bottom: 4px; }
+    .sticky-status { display: flex; gap: 8px; color: var(--text-soft); font-size: 13px; font-weight: 600; flex-wrap: wrap; }
+    .sticky-status span {
+      display: inline-flex;
       align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid var(--line);
+      color: var(--text-soft);
+      box-shadow: var(--shadow-xs);
     }
+    .top-actions { display: flex; gap: 8px; }
+    .btn-top-menu { background: transparent; border: none; color: var(--primary); font-weight: bold; padding: 4px 8px; box-shadow: none; min-height: 32px; }
 
-    .brand {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 14px;
-      align-items: baseline;
-      min-width: 0;
-    }
-
-    .brand h1 {
-      font-size: 20px;
-      color: #153a5d;
-      font-weight: 700;
-    }
-
-    .sticky-status {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      color: #31516c;
-      font-size: 13px;
-    }
-
-    .top-actions,
-    .button-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: flex-end;
-      align-items: center;
-    }
-
+    /* App Shell */
     .app {
       max-width: 1440px;
       margin: 0 auto;
       padding: 16px;
-      display: grid;
-      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
       gap: 16px;
-      align-items: start;
-    }
-
-    .stack {
-      display: grid;
-      gap: 16px;
-    }
-
-    .panel {
-      border: 1px solid var(--line-gray);
-      border-radius: 8px;
-      background: var(--surface);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .panel-header {
       display: flex;
-      gap: 10px;
+      flex-direction: column;
+    }
+
+    /* Panels */
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .panel-header {
+      min-height: 52px;
+      display: flex;
       justify-content: space-between;
       align-items: center;
-      min-height: 44px;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--line-gray);
-      background: var(--header-blue);
-      color: #183b5d;
-    }
-
-    .panel-body {
-      padding: 12px;
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .form-grid .wide {
-      grid-column: 1 / -1;
-    }
-
-    label {
-      display: grid;
-      gap: 5px;
-      color: #334155;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .employees,
-    .operations {
-      display: grid;
-      gap: 8px;
-    }
-
-    .employee-item,
-    .operation-item,
-    .mobile-measurement,
-    .legend-row {
-      border: 1px solid var(--line-gray);
-      border-radius: 6px;
+      padding: 14px 16px;
       background: #ffffff;
-      padding: 10px;
+      border-bottom: 1px solid var(--line);
     }
+    .panel-body { padding: 16px; }
 
-    .employee-item.active,
-    .operation-item.active {
-      border-color: var(--dark-blue);
-      box-shadow: inset 3px 0 0 var(--dark-blue);
+    .danger-panel { border-color: var(--danger-border); background: var(--danger-soft); }
+    .danger-panel-header { background: #fff7f6; color: var(--danger); border-bottom-color: var(--danger-border); }
+    .danger-strong { font-weight: 850; }
+
+    /* Forms & Badges */
+    .form-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    label { display: grid; gap: 6px; color: var(--text-soft); font-size: 13px; font-weight: 700; }
+    .flex-row { display: flex; gap: 10px; }
+    .flex-1 { flex: 1; }
+    .mt-4 { margin-top: 16px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-3 { margin-bottom: 12px; }
+    .muted-bold { font-size: 13px; color: var(--muted); font-weight: 750; margin-bottom: 6px; }
+    .text-center { text-align: center; }
+
+    .badge, .profile-pill, .status-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      min-height: 22px; border-radius: 6px; padding: 2px 8px;
+      font-size: 12px; font-weight: 750; white-space: nowrap;
+      border: 1px solid var(--line-strong); background: var(--surface-soft); color: var(--text-soft);
     }
+    .status-pill.complete, .profile-pill.expert { border-color: var(--success-border); background: var(--success-soft); color: var(--success); }
+    .status-pill.partial, .profile-pill.middle { border-color: var(--warning-border); background: var(--warning-soft); color: var(--warning); }
+    .status-pill.empty, .profile-pill.novice { border-color: var(--line); background: var(--surface-soft); color: var(--muted); }
 
-    .operation-item {
-      text-align: left;
-      display: grid;
-      gap: 6px;
-      width: 100%;
-      min-height: 120px;
-    }
+    .empty-note { color: var(--text-soft); padding: 24px; border: 1px dashed var(--line-strong); border-radius: var(--radius-md); background: var(--surface-tint); text-align: center; margin-bottom: 20px; }
+    .empty-note-title { font-weight: 800; font-size: 16px; margin-bottom: 8px; color: var(--primary-dark); }
+    .empty-note-desc { font-size: 14px; margin-bottom: 16px; line-height: 1.4; color: var(--text-soft); }
 
-    .operation-title {
-      display: block;
-      font-weight: 700;
-      color: #102a43;
-    }
-
-    .meta-line {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 10px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .badge,
-    .profile-pill,
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      min-height: 22px;
-      border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1.2;
-      white-space: nowrap;
-      border: 1px solid #9ca3af;
-      background: var(--tag-gray);
-      color: #334155;
-    }
-
-    .profile-pill.expert,
-    .status-pill.complete {
-      border-color: #9ec5a7;
-      background: #eaf7ee;
-      color: #17603b;
-    }
-
-    .profile-pill.middle,
-    .status-pill.partial {
-      border-color: #d7c38a;
-      background: #fff8e6;
-      color: #7a4d00;
-    }
-
-    .profile-pill.novice,
-    .status-pill.empty {
-      border-color: #c6d0dd;
-      background: #f1f5f9;
-      color: #475569;
-    }
-
-    .counter-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-
+    /* Progress Counters */
+    .counter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     .counter {
-      border: 1px solid var(--line-gray);
-      border-radius: 6px;
-      background: #fbfdff;
-      padding: 10px;
-    }
-
-    .counter strong {
-      display: block;
-      font-size: 21px;
-      color: var(--dark-blue);
-      line-height: 1.15;
-    }
-
-    .counter span {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 3px;
-    }
-
-    .detail-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      border: 1px solid var(--line-gray);
-      border-bottom: 0;
-      border-right: 0;
-      margin-top: 10px;
-    }
-
-    .detail-cell {
-      min-height: 62px;
-      border-right: 1px solid var(--line-gray);
-      border-bottom: 1px solid var(--line-gray);
-      padding: 8px 10px;
-      display: grid;
-      gap: 4px;
-      align-content: start;
-    }
-
-    .detail-cell span {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .detail-cell strong {
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .items-list {
-      margin: 12px 0 0;
-      padding-left: 22px;
-      display: grid;
-      gap: 8px;
-    }
-
-    .items-list li {
-      padding-left: 2px;
-    }
-
-    .timer-shell {
-      display: grid;
-      grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
-      gap: 14px;
-      align-items: start;
-    }
-
-    .timer-display {
-      border: 1px solid var(--line-gray);
-      border-radius: 8px;
-      background: #fbfdff;
-      padding: 16px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--line);
+      background: #ffffff;
+      padding: 16px 10px;
+      box-shadow: var(--shadow-xs);
       text-align: center;
     }
+    .counter strong { display: block; font-size: 25px; line-height: 1; font-weight: 850; color: var(--primary-dark); letter-spacing: -0.04em; }
+    .counter span { display: block; margin-top: 7px; font-size: 12px; color: var(--text-soft); font-weight: 600; }
 
-    .timer-time {
-      font-size: 46px;
-      line-height: 1;
-      font-weight: 700;
-      color: var(--dark-blue);
-      font-variant-numeric: tabular-nums;
-      letter-spacing: 0;
+    /* Timer Screen */
+    .timer-time, .counter strong, .metric-value, #headerTimerText { font-variant-numeric: tabular-nums; }
+    .timer-display {
+      position: relative; overflow: hidden; text-align: center; margin-bottom: 16px; padding: 26px 18px;
+      border: 1px solid var(--primary-border); border-radius: var(--radius-xl);
+      background: #ffffff;
+      box-shadow: var(--shadow-md);
+    }
+    .timer-time { font-size: clamp(48px, 13vw, 68px); line-height: 1; font-weight: 850; letter-spacing: -0.05em; color: var(--primary-dark); }
+    .timer-status-wrap { margin-top: 12px; }
+    
+    .timer-controls { display: grid; gap: 12px; grid-template-columns: 1fr; margin-bottom: 20px; }
+    .timer-controls button { min-height: 52px; font-size: 16px; }
+    .secondary-btn-group { display: flex; gap: 12px; }
+    .secondary-btn-group button { flex: 1; }
+
+    .operation-info-card, .employee-info-card {
+      border-radius: var(--radius-lg); border: 1px solid var(--line);
+      background: #ffffff;
+      box-shadow: var(--shadow-xs); padding: 16px; margin-bottom: 16px;
+    }
+    .operation-info-card h3 { color: var(--primary-dark); margin: 10px 0; font-size: 16px; }
+    .meta-line { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .meta-line-text { font-size: 13px; color: var(--text-soft); }
+
+    /* Operations Screen */
+    .chips-group { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 10px; margin-bottom: 12px; scrollbar-width: none; }
+    .chips-group::-webkit-scrollbar { display: none; }
+    .chip { min-height: 34px; display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.85); color: var(--text-soft); font-size: 13px; font-weight: 750; white-space: nowrap; cursor: pointer; transition: all 0.2s; }
+    .chip.active { background: var(--primary); color: #ffffff; border-color: var(--primary); box-shadow: 0 8px 18px rgba(45, 122, 93, 0.18); }
+
+    .operation-item { position: relative; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; background: #ffffff; box-shadow: var(--shadow-xs); margin-bottom: 12px; }
+    .operation-item.active { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(45, 122, 93, 0.12), var(--shadow-sm); }
+    .operation-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .operation-title { margin: 8px 0 12px; font-weight: 800; font-size: 15px; line-height: 1.3; color: #102a43; }
+    .operation-card-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--text-soft); }
+    .operation-card-bottom .select-op-btn { min-height: 36px; padding: 6px 16px; font-size: 13px; margin-left: auto; }
+
+    /* Employee Screen */
+    .employee-item { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; background: #ffffff; box-shadow: var(--shadow-xs); margin-bottom: 12px; }
+    .employee-item.active { border-color: var(--primary); background: #ffffff; box-shadow: 0 0 0 3px rgba(45, 122, 93, 0.12), var(--shadow-sm); }
+    .employee-main { display: flex; align-items: center; gap: 14px; }
+    .employee-avatar { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-dark); font-weight: 850; font-size: 18px; flex-shrink: 0; }
+    .employee-content { flex: 1; }
+    .employee-name { font-weight: 800; font-size: 16px; margin-bottom: 4px; color: var(--text); }
+    .employee-actions { display: flex; gap: 10px; margin-top: 14px; }
+    .employee-actions button { min-height: 36px; padding: 6px 16px; font-size: 13px; flex: 1; }
+
+    /* Progress issues */
+    .problem-list { display: grid; gap: 10px; margin-top: 14px; }
+    .problem-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #ffffff; box-shadow: var(--shadow-xs); }
+    .problem-title { font-weight: 800; font-size: 14px; margin-bottom: 4px; color: var(--text); }
+    .problem-desc { font-size: 12px; color: var(--text-soft); line-height: 1.4; }
+
+    /* Checklist */
+    .items-list { border: 0; border-radius: 0; overflow: visible; display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .items-list li { border: 1px solid var(--line); border-radius: var(--radius-md); background: #ffffff; overflow: hidden; box-shadow: var(--shadow-xs); display: flex; align-items: stretch; transition: background 0.2s, border-color 0.2s; }
+    .items-list li.checked { border-color: var(--success-border); background: var(--success-soft); }
+    .items-list input[type="checkbox"] { width: 22px; height: 22px; margin: 0 12px 0 0; cursor: pointer; flex-shrink: 0; accent-color: var(--primary); }
+    .items-list label { min-height: 50px; padding: 14px; background: transparent; display: flex; align-items: flex-start; font-weight: 600; color: var(--text); font-size: 14px; cursor: pointer; line-height: 1.4; flex: 1; margin: 0; }
+
+    /* Alerts */
+    .alert { border-radius: var(--radius-md); padding: 14px 16px; font-weight: 700; margin-bottom: 16px; display: none; font-size: 14px; }
+    .alert.warning { background: var(--warning-soft); border: 1px solid var(--warning-border); color: var(--warning); }
+    .alert.success { background: var(--success-soft); border: 1px solid var(--success-border); color: var(--success); }
+
+    /* Modal / Confirm screen */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.48); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-content {
+      background: #ffffff; border: 1px solid rgba(255, 255, 255, 0.72); border-radius: var(--radius-xl);
+      padding: 26px 22px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg);
+    }
+    .modal-content h2 { margin-bottom: 18px; color: var(--primary-dark); font-size: 20px; }
+    .modal-actions { display: grid; gap: 12px; margin-top: 24px; }
+    
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal-overlay.active .modal-content { animation: modalIn 0.18s ease both; }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: fixed; left: 12px; right: 12px; bottom: 10px; height: auto; min-height: 64px;
+      display: none; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 6px;
+      border: 1px solid var(--line); border-radius: 22px;
+      background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-lg); z-index: 100;
+      padding-bottom: max(6px, env(safe-area-inset-bottom));
+    }
+    .nav-item {
+      min-height: 50px; border: 0; border-radius: 16px; background: transparent; color: var(--muted);
+      font-size: 11px; font-weight: 800; box-shadow: none; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: all 0.2s;
+    }
+    .nav-item:hover:not(:disabled) { transform: none; box-shadow: none; color: var(--primary); }
+    .nav-item.active { background: var(--primary-soft); color: var(--primary-dark); }
+    .nav-item svg { width: 22px; height: 22px; margin-bottom: 4px; fill: currentColor; }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .mobile-view.active-view, .panel, .operation-item, .employee-item, .counter { animation: fadeUp 0.16s ease both; }
+    
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
     }
 
-    .timer-subtitle {
-      margin-top: 8px;
-      min-height: 20px;
-      color: var(--muted);
-      font-size: 13px;
+    /* Screens logic */
+    .mobile-view { display: none; }
+    .hidden { display: none !important; }
+
+    /* Desktop Layout */
+    @media (min-width: 769px) {
+      .app { display: grid; grid-template-columns: 380px 1fr; align-items: start; }
+      .desktop-left { display: flex; flex-direction: column; gap: 16px; }
+      .desktop-right { display: flex; flex-direction: column; gap: 16px; }
+      .mobile-view { display: block !important; animation: none !important; }
+      .bottom-nav { display: none !important; }
+      body { padding-bottom: 30px; }
     }
 
-    .timer-controls {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(120px, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
+    @media (max-width: 768px) {
+      .app { padding: 12px; padding-bottom: calc(var(--nav-height) + 22px + env(safe-area-inset-bottom)); }
+      .desktop-left, .desktop-right { display: contents; }
+      .bottom-nav { display: grid; }
+      .top-actions { display: none; }
+      .mobile-view.active-view { display: block; }
     }
 
-    .alert {
-      display: none;
-      border: 1px solid #d7c38a;
-      background: #fff8e6;
-      color: #644000;
-      border-radius: 6px;
-      padding: 9px 10px;
-      margin-top: 10px;
-    }
-
-    .alert.show {
-      display: block;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 13px;
-    }
-
-    th,
-    td {
-      border: 1px solid var(--line-gray);
-      padding: 8px;
-      text-align: left;
-      vertical-align: top;
-      overflow-wrap: anywhere;
-    }
-
-    th {
-      background: var(--header-blue);
-      color: #183b5d;
-      font-weight: 700;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-    }
-
-    .empty-note {
-      color: var(--muted);
-      padding: 12px;
-      border: 1px dashed var(--line-gray);
-      border-radius: 6px;
-      background: #fbfdff;
-    }
-
-    .legend {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .legend-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      min-height: 46px;
-      color: #334155;
-      font-size: 13px;
-    }
-
-    .summary-tabs {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }
-
-    .summary-view[hidden] {
-      display: none;
-    }
-
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
-
-    @media (max-width: 980px) {
-      .app {
-        grid-template-columns: 1fr;
-      }
-
-      .topbar-inner {
-        grid-template-columns: 1fr;
-      }
-
-      .top-actions {
-        justify-content: flex-start;
-      }
-    }
-
-    @media (max-width: 720px) {
-      .app {
-        padding: 10px;
-        gap: 12px;
-      }
-
-      .panel-body {
-        padding: 10px;
-      }
-
-      .form-grid,
-      .timer-shell,
-      .detail-grid,
-      .counter-grid,
-      .legend {
-        grid-template-columns: 1fr;
-      }
-
-      .timer-controls {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .timer-time {
-        font-size: 40px;
-      }
-
-      .desktop-table thead {
-        display: none;
-      }
-
-      .desktop-table,
-      .desktop-table tbody,
-      .desktop-table tr,
-      .desktop-table td {
-        display: block;
-        width: 100%;
-      }
-
-      .desktop-table tr {
-        border: 1px solid var(--line-gray);
-        border-radius: 6px;
-        margin-bottom: 8px;
-        background: #ffffff;
-        overflow: hidden;
-      }
-
-      .desktop-table td {
-        border: 0;
-        border-bottom: 1px solid #e2e8f0;
-        display: grid;
-        grid-template-columns: minmax(120px, 42%) minmax(0, 1fr);
-        gap: 8px;
-        min-height: 38px;
-      }
-
-      .desktop-table td::before {
-        content: attr(data-label);
-        color: var(--muted);
-        font-weight: 700;
-      }
-
-      .desktop-table td:last-child {
-        border-bottom: 0;
-      }
-    }
   </style>
 </head>
 <body>
+
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
-        <h1>Анкета замера времени ДИ</h1>
-        <div class="sticky-status">
-          <span id="stickyOperation">Операция: DI-001</span>
-          <span id="stickyEmployee">Сотрудник: не выбран</span>
-          <span id="stickyTimer">00:00:00</span>
+        <h1>Анкета ДИ</h1>
+        <div class="sticky-status" id="mobileHeaderStatus">
+          <span>DI-XXX · 00:00:00</span>
         </div>
       </div>
       <div class="top-actions">
-        <button type="button" id="exportCsvBtn">Экспорт CSV</button>
-        <button type="button" id="exportJsonBtn">Экспорт JSON</button>
-        <button type="button" id="exportSessionBtn">Экспорт сессии</button>
-        <button type="button" id="importSessionBtn">Импорт сессии</button>
-        <button type="button" class="danger" id="clearSessionBtn">Очистить сессию</button>
-        <input class="sr-only" type="file" id="importSessionInput" accept="application/json,.json">
+        <button type="button" class="btn-top-menu nav-to-more">Меню</button>
       </div>
     </div>
   </header>
 
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-content">
+      <h2>Завершить замер?</h2>
+      <div class="operation-info-card" id="confirmData">
+         <!-- populated by js -->
+      </div>
+      <div class="form-grid mt-4">
+        <label>Комментарий к замеру
+          <textarea id="measurementComment" placeholder="Укажите особенности замера..."></textarea>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="primary" id="confirmSaveBtn">Записать замер</button>
+        <button type="button" class="ghost" id="confirmCancelBtn">Вернуться к таймеру</button>
+      </div>
+    </div>
+  </div>
+
   <main class="app">
-    <aside class="stack">
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Сессия</h2>
-        </div>
-        <div class="panel-body">
-          <div class="form-grid">
-            <label>Проверяющий
-              <input id="sessionAuditor" autocomplete="off">
-            </label>
-            <label>Дата проверки
-              <input id="sessionDate" type="date">
-            </label>
-            <label class="wide">Площадка / подразделение
-              <input id="sessionSite" autocomplete="off">
-            </label>
-            <label class="wide">Комментарий к сессии
-              <textarea id="sessionComment"></textarea>
-            </label>
+    <div class="desktop-left">
+      <!-- Операции -->
+      <div class="mobile-view view-operations" id="view-operations">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Операции <span class="badge" id="operationCountBadge">0</span></h2>
+          </div>
+          <div class="panel-body">
+            <input type="search" id="filterSearch" class="search-input" placeholder="Поиск по ID / названию...">
+            
+            <div class="muted-bold">Этап:</div>
+            <div class="chips-group" id="chipsStage">
+              <div class="chip active" data-val="all">Все</div>
+              <div class="chip" data-val="ФЛ">ФЛ</div>
+              <div class="chip" data-val="ПИ">ПИ</div>
+              <div class="chip" data-val="КОД">КОД</div>
+              <div class="chip" data-val="ДОП">ДОП</div>
+            </div>
+            
+            <div class="muted-bold">Покрытие:</div>
+            <div class="chips-group" id="chipsStatus">
+              <div class="chip active" data-val="all">Все</div>
+              <div class="chip" data-val="none">Не измерено</div>
+              <div class="chip" data-val="partial">Частично</div>
+              <div class="chip" data-val="complete">Полностью</div>
+            </div>
+
+            <div id="operationsList" class="mt-4"></div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Сотрудники</h2>
-        </div>
-        <div class="panel-body stack">
-          <form id="employeeForm" class="form-grid">
-            <label class="wide">ФИО / код сотрудника
-              <input id="employeeName" required autocomplete="off">
-            </label>
-            <label>Роль
-              <input id="employeeRole" autocomplete="off" placeholder="ПМ">
-            </label>
-            <label>Профиль
-              <select id="employeeProfile">
-                <option value="expert">Эксперт</option>
-                <option value="middle">Средний</option>
-                <option value="novice">Новичок</option>
-              </select>
-            </label>
-            <label class="wide">Комментарий
-              <textarea id="employeeComment"></textarea>
-            </label>
-            <div class="wide">
-              <button type="submit" class="primary">Добавить сотрудника</button>
-            </div>
-          </form>
-          <div id="employeesList" class="employees"></div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Фильтры</h2>
-          <span id="operationCount" class="badge">0</span>
-        </div>
-        <div class="panel-body">
-          <div class="form-grid">
-            <label class="wide">Поиск по ID / названию
-              <input id="filterSearch" type="search" autocomplete="off">
-            </label>
-            <label>Этап
-              <select id="filterStage">
-                <option value="all">Все</option>
-                <option value="ФЛ">ФЛ</option>
-                <option value="ПИ">ПИ</option>
-                <option value="КОД">КОД</option>
-                <option value="ДОП">ДОП</option>
-              </select>
-            </label>
-            <label>Тип сделки
-              <select id="filterDeal">
-                <option value="all">Все</option>
-                <option value="все типы">Все типы</option>
-                <option value="ИЖС">ИЖС</option>
-                <option value="ЖД">ЖД</option>
-                <option value="ГЖ">ГЖ</option>
-                <option value="ДДУ">ДДУ</option>
-                <option value="РЕФ">РЕФ</option>
-                <option value="уточнить">Уточнить</option>
-              </select>
-            </label>
-            <label class="wide">Статус замера
-              <select id="filterStatus">
-                <option value="all">Все</option>
-                <option value="none">Не измерено</option>
-                <option value="expert">Есть замер эксперта</option>
-                <option value="middle">Есть замер среднего</option>
-                <option value="novice">Есть замер новичка</option>
-                <option value="partial">Частично</option>
-                <option value="complete">Полностью покрыто</option>
-              </select>
-            </label>
+      <!-- Сотрудники -->
+      <div class="mobile-view view-employees" id="view-employees">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Сотрудники</h2>
+            <button type="button" id="showAddEmployeeBtn" class="ghost">+ Добавить</button>
           </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Операции</h2>
-        </div>
-        <div class="panel-body">
-          <div id="operationsList" class="operations"></div>
-        </div>
-      </section>
-    </aside>
-
-    <section class="stack">
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Прогресс</h2>
-        </div>
-        <div class="panel-body">
-          <div class="counter-grid">
-            <div class="counter">
-              <strong id="coverageAny">0 / 48</strong>
-              <span>Есть хотя бы один замер</span>
-            </div>
-            <div class="counter">
-              <strong id="coverageFull">0 / 48</strong>
-              <span>Полностью закрыто</span>
-            </div>
-            <div class="counter">
-              <strong id="measurementsTotal">0</strong>
-              <span>Всего замеров</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel" id="operationPanel">
-        <div class="panel-header">
-          <h2 id="operationHeading">Операция</h2>
-        </div>
-        <div class="panel-body" id="operationDetails"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Таймер</h2>
-          <span id="timerStatus" class="status-pill empty">не запущен</span>
-        </div>
-        <div class="panel-body">
-          <div class="timer-shell">
-            <div class="timer-display">
-              <div id="timerTime" class="timer-time">00:00:00</div>
-              <div id="timerSubtitle" class="timer-subtitle">Выберите сотрудника и операцию</div>
-            </div>
-            <div>
-              <div class="timer-controls">
-                <button type="button" class="primary" id="timerStartBtn">Старт</button>
-                <button type="button" id="timerPauseBtn">Пауза</button>
-                <button type="button" id="timerResumeBtn">Продолжить</button>
-                <button type="button" id="timerFinishBtn">Завершить и записать</button>
-                <button type="button" id="timerResetBtn">Сброс</button>
-              </div>
-              <label>Комментарий к замеру
-                <textarea id="measurementComment"></textarea>
+          <div class="panel-body">
+            
+            <form id="employeeForm" class="form-grid hidden employee-info-card">
+              <h3 class="mb-2">Новый сотрудник</h3>
+              <label>ФИО / код <input id="employeeName" required autocomplete="off"></label>
+              <label>Роль <input id="employeeRole" autocomplete="off" placeholder="ПМ"></label>
+              <label>Профиль
+                <select id="employeeProfile">
+                  <option value="expert">Эксперт</option>
+                  <option value="middle">Средний</option>
+                  <option value="novice">Новичок</option>
+                </select>
               </label>
-              <div id="timerWarning" class="alert"></div>
+              <div class="flex-row mt-4">
+                <button type="submit" class="primary flex-1">Сохранить</button>
+                <button type="button" id="hideAddEmployeeBtn" class="ghost flex-1">Отмена</button>
+              </div>
+            </form>
+
+            <div id="employeesList" style="display: grid; gap: 12px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desktop-right">
+      <!-- Замер -->
+      <div class="mobile-view view-measure" id="view-measure">
+        <div class="alert warning" id="timerWarning"></div>
+
+        <div id="measureReadyBlock">
+          <div class="employee-info-card" id="measureCurrentEmployee">
+            <!-- js -->
+          </div>
+
+          <div class="operation-info-card" id="measureCurrentOperation">
+            <!-- js -->
+          </div>
+
+          <div class="timer-display">
+            <div class="timer-time" id="timerTime">00:00:00</div>
+            <div class="timer-status-wrap">
+               <span id="timerStatusLabel" class="status-pill empty">Не запущен</span>
+            </div>
+          </div>
+
+          <div class="timer-controls">
+            <button type="button" class="primary" id="timerStartBtn">Запустить таймер</button>
+            
+            <div class="secondary-btn-group hidden" id="timerActiveGroup">
+              <button type="button" id="timerPauseBtn">Пауза</button>
+              <button type="button" class="primary hidden" id="timerResumeBtn">Продолжить</button>
+              <button type="button" class="danger" style="color:var(--danger)" id="timerFinishBtn">Завершить</button>
+            </div>
+            
+            <div class="text-center mt-4">
+              <button type="button" id="timerResetBtn" class="ghost hidden">Сбросить текущий замер</button>
+            </div>
+          </div>
+
+          <div class="panel" id="checklistPanel">
+            <div class="panel-header">
+              <h3>Состав операции</h3>
+              <span class="badge" id="checkedCountBadge">0 / 0</span>
+            </div>
+            <ul class="items-list" id="operationChecklist">
+              <!-- params -->
+            </ul>
+          </div>
+        </div>
+
+        <div id="measureEmptyBlock" class="empty-note hidden">
+          <p class="empty-note-title">Замер не готов</p>
+          <p class="empty-note-desc">Для старта выберите операцию и укажите сотрудника.</p>
+          <div class="form-grid">
+            <button type="button" class="primary switch-view" data-target="operations">Выбрать операцию</button>
+            <button type="button" class="ghost switch-view" data-target="employees">Выбрать сотрудника</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Прогресс -->
+      <div class="mobile-view view-progress" id="view-progress">
+        <div class="panel">
+          <div class="panel-header"><h2>Прогресс</h2></div>
+          <div class="panel-body">
+            <div class="counter-grid">
+              <div class="counter"><strong id="coverageAny">0</strong><span>Начато</span></div>
+              <div class="counter"><strong id="coverageFull">0</strong><span>Закрыто</span></div>
+              <div class="counter"><strong id="measurementsTotal">0</strong><span>Замеров</span></div>
+            </div>
+            
+            <h3 class="mt-4 mb-2">Детализация покрытия</h3>
+            <div class="problem-list" id="progressIssuesList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Еще -->
+      <div class="mobile-view view-more" id="view-more">
+        <div class="panel">
+          <div class="panel-header"><h2>Сессия</h2></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <label>Проверяющий <input id="sessionAuditor"></label>
+              <label>Дата проверки <input id="sessionDate" type="date"></label>
+              <label>Площадка / Подразделение <input id="sessionSite"></label>
+              <label>Комментарий <textarea id="sessionComment"></textarea></label>
             </div>
           </div>
         </div>
-      </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Замеры по операции</h2>
-        </div>
-        <div class="panel-body" id="measurementsForOperation"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Сводка</h2>
-        </div>
-        <div class="panel-body">
-          <div class="summary-tabs">
-            <button type="button" class="primary" data-summary-tab="coverage">Матрица покрытия</button>
-            <button type="button" data-summary-tab="results">Результаты</button>
+        <div class="panel">
+          <div class="panel-header"><h2>Экспорт и Импорт</h2></div>
+          <div class="panel-body form-grid">
+            <button type="button" id="exportCsvBtn">Экспорт CSV</button>
+            <button type="button" id="exportSessionBtn">Экспорт сессии (JSON)</button>
+            <button type="button" id="importSessionBtn" class="ghost">Импорт сессии</button>
+            <input type="file" id="importSessionInput" accept="application/json,.json" class="hidden">
           </div>
-          <div id="coverageSummary" class="summary-view"></div>
-          <div id="resultsSummary" class="summary-view" hidden></div>
         </div>
-      </section>
-    </section>
+
+        <div class="panel danger-panel">
+          <div class="panel-header danger-panel-header"><h2>Опасная зона</h2></div>
+          <div class="panel-body form-grid">
+            <button type="button" class="danger danger-strong" id="clearSessionBtn">Очистить всю сессию</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
+  <nav class="bottom-nav">
+    <button class="nav-item active switch-view" data-target="measure">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z"/><path d="M12.5 7H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>
+      Замер
+    </button>
+    <button class="nav-item switch-view" data-target="operations">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+      Операции
+    </button>
+    <button class="nav-item switch-view" data-target="employees">
+      <svg viewBox="0 0 24 24"><path d="M12 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/></svg>
+      Сотрудники
+    </button>
+    <button class="nav-item switch-view" data-target="progress">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 12h2v5H7zm4-3h2v8h-2zm4-4h2v12h-2z"/></svg>
+      Прогресс
+    </button>
+    <button class="nav-item switch-view" data-target="more">
+      <svg viewBox="0 0 24 24"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+      Еще
+    </button>
+  </nav>
+
   <script src="data/operations.js"></script>
+  
   <script>
     (function () {
       "use strict";
 
       const STORAGE_KEY = "di_time_measurement_app_v1";
       const TIMER_KEY = STORAGE_KEY + "_timer";
-      const PROFILES = {
-        expert: "Эксперт",
-        middle: "Средний",
-        novice: "Новичок"
-      };
+      const PROFILES = { expert: "Эксперт", middle: "Средний", novice: "Новичок" };
 
       const $ = (selector) => document.querySelector(selector);
       const operations = Array.isArray(window.OPERATIONS) ? window.OPERATIONS : [];
@@ -827,934 +631,512 @@
       const isoNow = () => new Date().toISOString();
 
       const defaultState = () => ({
-        session: {
-          auditor: "",
-          date: todayIso(),
-          site: "",
-          comment: ""
-        },
+        ui: { mobileView: "measure" },
+        session: { auditor: "", date: todayIso(), site: "", comment: "" },
         employees: [],
         measurements: [],
         selectedEmployeeId: "",
         selectedOperationId: operations[0] ? operations[0].id : "",
-        filters: {
-          search: "",
-          stage: "all",
-          deal: "all",
-          status: "all"
-        }
+        filters: { search: "", stage: "all", deal: "all", status: "all" }
       });
 
       const defaultTimer = () => ({
-        operationId: "",
-        employeeId: "",
-        startedAt: "",
-        runningSince: "",
-        elapsedBeforePauseSec: 0,
-        status: "idle"
+        operationId: "", employeeId: "", startedAt: "", runningSince: "", elapsedBeforePauseSec: 0, status: "idle"
       });
 
       let state = loadState();
       let timer = loadTimer();
-      let lastWarning = "";
+      let lastNotice = null;
 
       if (timer.status === "running") {
         timer.elapsedBeforePauseSec = getElapsedSec(timer);
         timer.runningSince = "";
         timer.status = "paused";
         saveTimer();
-        lastWarning = "Таймер был запущен до перезагрузки. Состояние восстановлено как пауза.";
+        lastNotice = { msg: "Таймер восстановлен в режиме паузы", type: "warning" };
       }
 
       function loadState() {
         try {
-          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
           const base = defaultState();
           if (!saved || typeof saved !== "object") return base;
           return {
-            ...base,
-            ...saved,
+            ...base, ...saved,
+            ui: { ...base.ui, ...(saved.ui || {}) },
             session: { ...base.session, ...(saved.session || {}) },
             filters: { ...base.filters, ...(saved.filters || {}) },
             employees: Array.isArray(saved.employees) ? saved.employees : [],
             measurements: Array.isArray(saved.measurements) ? saved.measurements : []
           };
-        } catch (error) {
-          console.warn(error);
-          return defaultState();
-        }
+        } catch (e) { return defaultState(); }
       }
 
       function loadTimer() {
         try {
-          const saved = JSON.parse(localStorage.getItem(TIMER_KEY) || "null");
-          return saved && typeof saved === "object" ? { ...defaultTimer(), ...saved } : defaultTimer();
-        } catch (error) {
-          console.warn(error);
-          return defaultTimer();
-        }
+          const saved = JSON.parse(localStorage.getItem(TIMER_KEY));
+          return saved ? { ...defaultTimer(), ...saved } : defaultTimer();
+        } catch (e) { return defaultTimer(); }
       }
 
-      function saveState() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      }
-
-      function saveTimer() {
-        localStorage.setItem(TIMER_KEY, JSON.stringify(timer));
-      }
-
-      function activeOperation() {
-        return operations.find((operation) => operation.id === state.selectedOperationId) || operations[0];
-      }
-
-      function activeEmployee() {
-        return state.employees.find((employee) => employee.id === state.selectedEmployeeId) || null;
-      }
-
-      function operationById(id) {
-        return operations.find((operation) => operation.id === id);
-      }
-
-      function escapeHtml(value) {
-        return String(value ?? "")
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#039;");
-      }
-
-      function formatMinutes(value) {
-        if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
-        return Number(value).toFixed(2).replace(".", ",");
-      }
-
-      function formatPercent(value) {
-        if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
-        return Number(value).toFixed(1).replace(".", ",") + "%";
-      }
-
-      function formatDateTime(value) {
-        if (!value) return "-";
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return "-";
-        return date.toLocaleString("ru-RU", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit"
-        });
-      }
-
-      function formatDuration(seconds) {
-        const total = Math.max(0, Math.floor(seconds || 0));
-        const h = String(Math.floor(total / 3600)).padStart(2, "0");
-        const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
-        const s = String(total % 60).padStart(2, "0");
-        return `${h}:${m}:${s}`;
-      }
+      function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function saveTimer() { localStorage.setItem(TIMER_KEY, JSON.stringify(timer)); }
 
       function getElapsedSec(source = timer) {
         const base = Number(source.elapsedBeforePauseSec || 0);
         if (source.status !== "running" || !source.runningSince) return Math.floor(base);
-        const currentRun = Math.max(0, Math.floor((Date.now() - new Date(source.runningSince).getTime()) / 1000));
-        return Math.floor(base + currentRun);
+        return Math.floor(base + Math.max(0, (Date.now() - new Date(source.runningSince).getTime()) / 1000));
       }
 
-      function coverageForOperation(operationId) {
-        const measurements = state.measurements.filter((measurement) => measurement.operationId === operationId);
-        const profiles = {
-          expert: measurements.some((measurement) => measurement.employeeProfile === "expert"),
-          middle: measurements.some((measurement) => measurement.employeeProfile === "middle"),
-          novice: measurements.some((measurement) => measurement.employeeProfile === "novice")
+      function formatDuration(seconds) {
+        const t = Math.max(0, Math.floor(seconds || 0));
+        return `${String(Math.floor(t / 3600)).padStart(2,"0")}:${String(Math.floor((t % 3600) / 60)).padStart(2,"0")}:${String(t % 60).padStart(2,"0")}`;
+      }
+
+      function coverageForOperation(id) {
+        const m = state.measurements.filter(x => x.operationId === id);
+        const p = {
+          expert: m.some(x => x.employeeProfile === "expert"),
+          middle: m.some(x => x.employeeProfile === "middle"),
+          novice: m.some(x => x.employeeProfile === "novice")
         };
-        const count = Object.values(profiles).filter(Boolean).length;
-        const status = count === 3 ? "complete" : count > 0 ? "partial" : "none";
-        return { ...profiles, status, measurementsCount: measurements.length };
+        const count = Object.values(p).filter(Boolean).length;
+        return { ...p, status: count === 3 ? "complete" : count > 0 ? "partial" : "none", count: m.length };
       }
 
-      function statusLabel(status) {
-        if (status === "complete") return "полностью";
-        if (status === "partial") return "частично";
-        return "не начато";
+      function activeOp() { return operations.find(o => o.id === state.selectedOperationId); }
+      function activeEmp() { return state.employees.find(e => e.id === state.selectedEmployeeId); }
+
+      /* -------------------------------------
+         ROUTER 
+      ----------------------------------------*/
+      function setMobileView(view) {
+        state.ui.mobileView = view;
+        saveState();
+        document.querySelectorAll(".mobile-view").forEach(v => v.classList.remove("active-view"));
+        document.querySelectorAll(".nav-item").forEach(v => v.classList.remove("active"));
+        
+        const v = $(`#view-${view}`);
+        if(v) v.classList.add("active-view");
+        
+        const btn = document.querySelector(`.nav-item[data-target="${view}"]`);
+        if(btn) btn.classList.add("active");
+        
+        window.scrollTo(0, 0);
       }
 
-      function statusClass(status) {
-        if (status === "complete") return "complete";
-        if (status === "partial") return "partial";
-        return "empty";
-      }
+      /* -------------------------------------
+         RENDER
+      ----------------------------------------*/
+      function renderAll() {
+        renderMeasureTab();
+        renderOperationsTab();
+        renderEmployeesTab();
+        renderProgressTab();
+        renderMoreTab();
+        renderHeader();
+        updateTimerDisplay();
 
-      function isTimerActive() {
-        return timer.status === "running" || timer.status === "paused";
-      }
-
-      function showWarning(message) {
-        lastWarning = message;
-        const node = $("#timerWarning");
-        if (!node) return;
-        node.textContent = message;
-        node.classList.toggle("show", Boolean(message));
-      }
-
-      function clearWarning() {
-        lastWarning = "";
-        const node = $("#timerWarning");
-        if (node) {
-          node.textContent = "";
-          node.classList.remove("show");
+        if (lastNotice) {
+          showNotice(lastNotice.msg, lastNotice.type);
+          lastNotice = null;
         }
       }
 
-      function renderAll() {
-        renderSession();
-        renderEmployees();
-        renderFilters();
-        renderOperations();
-        renderOperationDetails();
-        renderTimer();
-        renderMeasurements();
-        renderProgress();
-        renderSummary();
-        updateSticky();
-        if (lastWarning) showWarning(lastWarning);
+      function renderHeader() {
+        const op = activeOp();
+        $("#mobileHeaderStatus").innerHTML = `<span>${op ? op.id : "Нет"} · <span id="headerTimerText">${formatDuration(getElapsedSec())}</span></span>`;
       }
 
-      function renderSession() {
+      function renderMeasureTab() {
+        const op = activeOp();
+        const emp = activeEmp();
+
+        if (!op || !emp) {
+          $("#measureReadyBlock").classList.add("hidden");
+          $("#measureEmptyBlock").classList.remove("hidden");
+          return;
+        }
+
+        $("#measureEmptyBlock").classList.add("hidden");
+        $("#measureReadyBlock").classList.remove("hidden");
+
+        $("#measureCurrentEmployee").innerHTML = `
+          <div class="operation-card-top" style="margin-bottom:0; align-items:center;">
+             <div>
+                <div class="employee-name">${emp.name}</div>
+                <div class="meta-line-text">${PROFILES[emp.profile] || emp.profile} · ${emp.role || "без роли"}</div>
+             </div>
+             <button type="button" class="ghost switch-view" data-target="employees">Сменить</button>
+          </div>
+        `;
+
+        const p = coverageForOperation(op.id);
+        const coverBadge = p.status === 'complete' ? '<span class="status-pill complete">Полностью</span>' : p.status === 'partial' ? '<span class="status-pill partial">Частично</span>' : '<span class="status-pill empty">Нет замера</span>';
+
+        $("#measureCurrentOperation").innerHTML = `
+          <div class="operation-card-top mb-2">
+            <div class="meta-line"><span class="badge">${op.id}</span><span class="badge">${op.stage}</span></div>
+            <button type="button" class="ghost switch-view" data-target="operations">Сменить</button>
+          </div>
+          <h3>${op.title}</h3>
+          <div class="meta-line mt-4">
+            <span class="meta-line-text">План: <strong class="text">${op.plannedMinutes} мин</strong></span>
+            <span class="meta-line-text">Сделка: <strong class="text">${op.dealType}</strong></span>
+          </div>
+        `;
+
+        const cl = $("#operationChecklist");
+        if (cl.dataset.opId !== op.id) {
+          cl.dataset.opId = op.id;
+          cl.innerHTML = (op.items || []).map((it, i) => `
+            <li>
+              <label for="chk_${i}">
+                 <input type="checkbox" id="chk_${i}" class="checklist-item-cb" value="${it.text}">
+                 <span>${it.text} ${it.dealTag ? `<span class="badge">${it.dealTag}</span>` : ''}</span>
+              </label>
+            </li>
+          `).join("");
+          updateChecklistCount();
+        }
+      }
+
+      function updateChecklistCount() {
+        const total = document.querySelectorAll('.checklist-item-cb').length;
+        const checkedItems = document.querySelectorAll('.checklist-item-cb:checked');
+        
+        document.querySelectorAll('.items-list li').forEach(li => li.classList.remove('checked'));
+        checkedItems.forEach(el => el.closest('li').classList.add('checked'));
+
+        $("#checkedCountBadge").textContent = `${checkedItems.length} / ${total}`;
+      }
+
+      function updateTimerDisplay() {
+        const sec = getElapsedSec();
+        const fTime = formatDuration(sec);
+        
+        const elTimer = $("#timerTime");
+        const headTimer = $("#headerTimerText");
+        if(elTimer) elTimer.textContent = fTime;
+        if(headTimer) headTimer.textContent = fTime;
+
+        const lbl = $("#timerStatusLabel");
+        
+        $("#timerStartBtn").classList.toggle("hidden", timer.status !== "idle");
+        $("#timerActiveGroup").classList.toggle("hidden", timer.status === "idle");
+        $("#timerResetBtn").classList.toggle("hidden", timer.status === "idle");
+        $("#timerPauseBtn").classList.toggle("hidden", timer.status !== "running");
+        $("#timerResumeBtn").classList.toggle("hidden", timer.status !== "paused");
+
+        if (timer.status === "running") {
+          if(lbl) { lbl.textContent = "Идет замер"; lbl.className = "status-pill partial"; }
+        } else if (timer.status === "paused") {
+          if(lbl) { lbl.textContent = "Пауза"; lbl.className = "status-pill partial"; }
+        } else {
+          if(lbl) { lbl.textContent = "Таймер остановлен"; lbl.className = "status-pill empty"; }
+        }
+      }
+
+      function renderOperationsTab() {
+        document.querySelectorAll("#chipsStage .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.stage));
+        document.querySelectorAll("#chipsStatus .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.status));
+
+        const list = $("#operationsList");
+        const query = state.filters.search.toLowerCase();
+        const st = state.filters.stage;
+        const cov = state.filters.status;
+
+        const filtered = operations.filter(o => {
+          if (query && !`${o.id} ${o.title} ${o.processBlock}`.toLowerCase().includes(query)) return false;
+          if (st !== "all" && o.stage !== st) return false;
+          const cp = coverageForOperation(o.id);
+          if (cov === "none" && cp.status !== "none") return false;
+          if (cov === "partial" && cp.status !== "partial") return false;
+          if (cov === "complete" && cp.status !== "complete") return false;
+          return true;
+        });
+
+        $("#operationCountBadge").textContent = filtered.length;
+
+        list.innerHTML = filtered.map(op => {
+          const cp = coverageForOperation(op.id);
+          const cpCls = cp.status==='complete'?'complete':cp.status==='partial'?'partial':'empty';
+          const cpTxt = cp.status==='complete'?'Полн.':cp.status==='partial'?'Част.':'Нет';
+          return `
+            <div class="operation-item ${op.id === state.selectedOperationId ? 'active' : ''}">
+              <div class="operation-card-top">
+                <div class="meta-line">
+                  <span class="badge">${op.id}</span>
+                  <span class="badge">${op.stage}</span>
+                </div>
+                <span class="status-pill ${cpCls}">${cpTxt}</span>
+              </div>
+              <div class="operation-title">${op.title}</div>
+              <div class="operation-card-bottom">
+                <span>План: ${op.plannedMinutes} мин</span>
+                <span>Строк: ${op.rowsCount}</span>
+                <button type="button" class="primary select-op-btn" data-id="${op.id}">Выбрать</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      function renderEmployeesTab() {
+        $("#employeesList").innerHTML = state.employees.map(e => `
+          <div class="employee-item ${e.id === state.selectedEmployeeId ? 'active':''}">
+            <div class="employee-main">
+              <div class="employee-avatar">${e.name.charAt(0).toUpperCase()}</div>
+              <div class="employee-content">
+                <div class="employee-name">${e.name}</div>
+                <div class="meta-line">
+                   <span class="profile-pill ${e.profile}">${PROFILES[e.profile] || e.profile}</span>
+                   <span class="meta-line-text">${e.role || 'Без роли'}</span>
+                </div>
+              </div>
+            </div>
+            <div class="employee-actions">
+              <button type="button" class="select-emp-btn primary" data-id="${e.id}">Выбрать</button>
+              <button type="button" class="ghost delete-emp-btn" data-id="${e.id}">Удалить</button>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      function renderProgressTab() {
+        const coverList = operations.map(o => ({ op: o, p: coverageForOperation(o.id) }));
+        const any = coverList.filter(c => c.p.status !== "none").length;
+        const full = coverList.filter(c => c.p.status === "complete").length;
+
+        $("#coverageAny").textContent = any;
+        $("#coverageFull").textContent = full;
+        $("#measurementsTotal").textContent = state.measurements.length;
+
+        const pList = coverList.filter(c => c.p.status !== "complete").slice(0, 50); 
+        $("#progressIssuesList").innerHTML = pList.map(c => `
+          <div class="problem-item">
+            <div>
+              <div class="problem-title">${c.op.id} <span style="font-weight:normal;color:var(--muted)">${c.p.status==='none'?'Не измерено':'Частично'}</span></div>
+              <div class="problem-desc">Эксп: ${c.p.expert?'✓':'-'} · Срд: ${c.p.middle?'✓':'-'} · Нов: ${c.p.novice?'✓':'-'}</div>
+            </div>
+            <button class="ghost select-op-btn" data-id="${c.op.id}">Открыть</button>
+          </div>
+        `).join("");
+      }
+
+      function renderMoreTab() {
         $("#sessionAuditor").value = state.session.auditor || "";
         $("#sessionDate").value = state.session.date || todayIso();
         $("#sessionSite").value = state.session.site || "";
         $("#sessionComment").value = state.session.comment || "";
       }
 
-      function renderEmployees() {
-        const wrap = $("#employeesList");
-        if (!state.employees.length) {
-          wrap.innerHTML = '<div class="empty-note">Сотрудники не добавлены.</div>';
-          return;
+      function showNotice(msg, type = "warning") {
+        const w = $("#timerWarning");
+        w.textContent = msg;
+        w.className = `alert ${type}`;
+        w.style.display = "block";
+        setTimeout(() => w.style.display = "none", 4000);
+      }
+
+      /* -------------------------------------
+         EVENTS & ACTIONS
+      ----------------------------------------*/
+      document.addEventListener("click", e => {
+        const sw = e.target.closest(".switch-view");
+        if (sw) setMobileView(sw.dataset.target);
+        if (e.target.closest(".nav-to-more")) setMobileView("more");
+
+        if (e.target.closest(".checklist-item-cb")) updateChecklistCount();
+
+        const selOp = e.target.closest(".select-op-btn");
+        if (selOp) {
+          const id = selOp.dataset.id;
+          if (timer.status !== "idle" && timer.operationId !== id) {
+            setMobileView("measure");
+            showNotice("Сначала завершите текущий замер!", "warning");
+            return;
+          }
+          state.selectedOperationId = id;
+          saveState(); renderAll(); setMobileView("measure");
         }
-        wrap.innerHTML = state.employees.map((employee) => `
-          <div class="employee-item ${employee.id === state.selectedEmployeeId ? "active" : ""}">
-            <div class="operation-title">${escapeHtml(employee.name)}</div>
-            <div class="meta-line">
-              <span class="profile-pill ${employee.profile}">${PROFILES[employee.profile] || employee.profile}</span>
-              <span>${escapeHtml(employee.role || "Роль не указана")}</span>
-            </div>
-            ${employee.comment ? `<div class="meta-line">${escapeHtml(employee.comment)}</div>` : ""}
-            <div class="button-row" style="justify-content:flex-start; margin-top:8px;">
-              <button type="button" data-employee-select="${employee.id}">Выбрать</button>
-              <button type="button" class="danger" data-employee-delete="${employee.id}">Удалить</button>
-            </div>
-          </div>
-        `).join("");
-      }
 
-      function renderFilters() {
-        $("#filterSearch").value = state.filters.search || "";
-        $("#filterStage").value = state.filters.stage || "all";
-        $("#filterDeal").value = state.filters.deal || "all";
-        $("#filterStatus").value = state.filters.status || "all";
-      }
-
-      function normalizedTags(operation) {
-        const values = [operation.dealType, ...operation.items.map((item) => item.dealTag)].filter(Boolean);
-        return values.join(" / ").toLowerCase();
-      }
-
-      function operationMatchesFilters(operation) {
-        const filters = state.filters;
-        const query = (filters.search || "").trim().toLowerCase();
-        if (query) {
-          const haystack = `${operation.id} ${operation.title} ${operation.processBlock}`.toLowerCase();
-          if (!haystack.includes(query)) return false;
+        const selEmp = e.target.closest(".select-emp-btn");
+        if (selEmp) {
+          const id = selEmp.dataset.id;
+          if (timer.status !== "idle" && timer.employeeId !== id) {
+             setMobileView("measure");
+             showNotice("Сначала завершите текущий замер!", "warning");
+             return;
+          }
+          state.selectedEmployeeId = id;
+          saveState(); renderAll(); setMobileView("measure");
         }
-        if (filters.stage !== "all" && operation.stage !== filters.stage) return false;
-        if (filters.deal !== "all") {
-          const tagText = normalizedTags(operation);
-          if (filters.deal === "все типы") {
-            if (operation.dealType !== "все типы") return false;
-          } else if (filters.deal === "уточнить") {
-            if (!tagText.includes("уточн") && !tagText.includes("уточнить")) return false;
-          } else if (operation.dealType !== "все типы" && !tagText.includes(filters.deal.toLowerCase())) {
-            return false;
+
+        const delEmp = e.target.closest(".delete-emp-btn");
+        if (delEmp) {
+          const id = delEmp.dataset.id;
+          if (timer.status !== "idle" && timer.employeeId === id) return showNotice("Нельзя удалить активного сотрудника", "warning");
+          if (confirm("Удалить сотрудника?")) {
+            state.employees = state.employees.filter(x => x.id !== id);
+            if (state.selectedEmployeeId === id) state.selectedEmployeeId = "";
+            saveState(); renderAll();
           }
         }
-        const coverage = coverageForOperation(operation.id);
-        if (filters.status === "none" && coverage.status !== "none") return false;
-        if (filters.status === "partial" && coverage.status !== "partial") return false;
-        if (filters.status === "complete" && coverage.status !== "complete") return false;
-        if (["expert", "middle", "novice"].includes(filters.status) && !coverage[filters.status]) return false;
-        return true;
-      }
 
-      function renderOperations() {
-        const list = $("#operationsList");
-        const filtered = operations.filter(operationMatchesFilters);
-        $("#operationCount").textContent = `${filtered.length} из ${operations.length}`;
-        if (!filtered.length) {
-          list.innerHTML = '<div class="empty-note">Нет операций по текущим фильтрам.</div>';
-          return;
-        }
-        list.innerHTML = filtered.map((operation) => {
-          const coverage = coverageForOperation(operation.id);
-          return `
-            <button type="button" class="operation-item ${operation.id === state.selectedOperationId ? "active" : ""}" data-operation-id="${operation.id}">
-              <span class="meta-line">
-                <span class="badge">${operation.id}</span>
-                <span class="status-pill ${statusClass(coverage.status)}">${statusLabel(coverage.status)}</span>
-              </span>
-              <span class="operation-title">${escapeHtml(operation.title)}</span>
-              <span class="meta-line">
-                <span>Этап: ${escapeHtml(operation.stage)}</span>
-                <span>Тип: ${escapeHtml(operation.dealType)}</span>
-              </span>
-              <span class="meta-line">
-                <span>Расчет: ${formatMinutes(operation.plannedMinutes)} мин</span>
-                <span>Строк: ${operation.rowsCount}</span>
-              </span>
-              <span class="meta-line">
-                <span>Эксперт ${coverage.expert ? "✓" : "-"}</span>
-                <span>Средний ${coverage.middle ? "✓" : "-"}</span>
-                <span>Новичок ${coverage.novice ? "✓" : "-"}</span>
-              </span>
-            </button>
-          `;
-        }).join("");
-      }
+        const chipS = e.target.closest("#chipsStage .chip");
+        if (chipS) { state.filters.stage = chipS.dataset.val; saveState(); renderOperationsTab(); }
+        
+        const chipSt = e.target.closest("#chipsStatus .chip");
+        if (chipSt) { state.filters.status = chipSt.dataset.val; saveState(); renderOperationsTab(); }
+      });
 
-      function renderOperationDetails() {
-        const operation = activeOperation();
-        if (!operation) {
-          $("#operationHeading").textContent = "Операция";
-          $("#operationDetails").innerHTML = '<div class="empty-note">Справочник операций не загружен.</div>';
-          return;
-        }
-        $("#operationHeading").textContent = `${operation.id}. ${operation.title}`;
-        $("#operationDetails").innerHTML = `
-          <div class="detail-grid">
-            <div class="detail-cell"><span>Этап</span><strong>${escapeHtml(operation.stage)}</strong></div>
-            <div class="detail-cell"><span>Блок процесса</span><strong>${escapeHtml(operation.processBlock)}</strong></div>
-            <div class="detail-cell"><span>Роль</span><strong>${escapeHtml(operation.role)}</strong></div>
-            <div class="detail-cell"><span>Расчетное время</span><strong>${formatMinutes(operation.plannedMinutes)} мин</strong></div>
-            <div class="detail-cell"><span>Строк в блоке</span><strong>${operation.rowsCount}</strong></div>
-            <div class="detail-cell"><span>Тип сделки</span><strong><span class="badge">${escapeHtml(operation.dealType)}</span></strong></div>
-          </div>
-          <h3 style="margin-top:14px;">Состав блока</h3>
-          <ol class="items-list">
-            ${operation.items.map((item) => `
-              <li>${escapeHtml(item.text)} ${item.dealTag ? `<span class="badge">${escapeHtml(item.dealTag)}</span>` : ""}</li>
-            `).join("")}
-          </ol>
-          <div class="legend">
-            <div class="legend-row"><span class="badge">ИЖС</span><span>Индивидуальное жилищное строительство</span></div>
-            <div class="legend-row"><span class="badge">ЖД</span><span>Жилой дом</span></div>
-            <div class="legend-row"><span class="badge">ГЖ</span><span>Готовое жилье / вторичный рынок</span></div>
-            <div class="legend-row"><span class="badge">ДДУ</span><span>Новостройка / долевое участие</span></div>
-            <div class="legend-row"><span class="badge">РЕФ</span><span>Рефинансирование</span></div>
-            <div class="legend-row"><span class="badge">уточн.</span><span>Применимость не размечена</span></div>
-          </div>
-        `;
-      }
+      $("#showAddEmployeeBtn").onclick = () => $("#employeeForm").classList.remove("hidden");
+      $("#hideAddEmployeeBtn").onclick = () => $("#employeeForm").classList.add("hidden");
+      $("#employeeForm").onsubmit = (e) => {
+        e.preventDefault();
+        const nm = $("#employeeName").value.trim();
+        if(!nm) return;
+        const emp = { id: `emp_${Date.now()}`, name: nm, role: $("#employeeRole").value.trim(), profile: $("#employeeProfile").value };
+        state.employees.push(emp);
+        state.selectedEmployeeId = emp.id;
+        saveState(); e.target.reset();
+        $("#employeeForm").classList.add("hidden");
+        renderAll(); setMobileView("measure");
+      };
 
-      function renderTimer() {
-        updateTimerUI();
-        $("#timerStartBtn").disabled = timer.status !== "idle";
-        $("#timerPauseBtn").disabled = timer.status !== "running";
-        $("#timerResumeBtn").disabled = timer.status !== "paused";
-        $("#timerFinishBtn").disabled = timer.status === "idle";
-        $("#timerResetBtn").disabled = timer.status === "idle";
-      }
+      $("#filterSearch").oninput = (e) => { state.filters.search = e.target.value; saveState(); renderOperationsTab(); };
 
-      function updateTimerUI() {
-        const elapsed = getElapsedSec();
-        $("#timerTime").textContent = formatDuration(elapsed);
-        $("#stickyTimer").textContent = formatDuration(elapsed);
-        const operation = operationById(timer.operationId) || activeOperation();
-        const employee = state.employees.find((item) => item.id === timer.employeeId) || activeEmployee();
-        const statusNode = $("#timerStatus");
-        const subtitle = $("#timerSubtitle");
-        if (timer.status === "running") {
-          statusNode.textContent = "идет замер";
-          statusNode.className = "status-pill partial";
-          subtitle.textContent = `${operation ? operation.id : "-"} / ${employee ? employee.name : "-"}`;
-        } else if (timer.status === "paused") {
-          statusNode.textContent = "пауза";
-          statusNode.className = "status-pill partial";
-          subtitle.textContent = `${operation ? operation.id : "-"} / ${employee ? employee.name : "-"}`;
-        } else {
-          statusNode.textContent = "не запущен";
-          statusNode.className = "status-pill empty";
-          subtitle.textContent = activeEmployee() && activeOperation() ? "Готов к замеру" : "Выберите сотрудника и операцию";
-        }
-        updateSticky();
-      }
+      ["Auditor", "Date", "Site", "Comment"].forEach(f => {
+        $(`#session${f}`).oninput = (e) => { state.session[f.toLowerCase()] = e.target.value; saveState(); }
+      });
 
-      function renderMeasurements() {
-        const operation = activeOperation();
-        const wrap = $("#measurementsForOperation");
-        if (!operation) {
-          wrap.innerHTML = '<div class="empty-note">Операция не выбрана.</div>';
-          return;
-        }
-        const rows = state.measurements
-          .filter((measurement) => measurement.operationId === operation.id)
-          .sort((a, b) => new Date(b.createdAt || b.endedAt) - new Date(a.createdAt || a.endedAt));
-        if (!rows.length) {
-          wrap.innerHTML = '<div class="empty-note">По выбранной операции пока нет замеров.</div>';
-          return;
-        }
-        wrap.innerHTML = `
-          <div class="table-wrap">
-            <table class="desktop-table">
-              <thead>
-                <tr>
-                  <th>Дата/время</th>
-                  <th>Сотрудник</th>
-                  <th>Профиль</th>
-                  <th>Факт, мин</th>
-                  <th>Расчет, мин</th>
-                  <th>Отклонение</th>
-                  <th>Комментарий</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows.map((measurement) => `
-                  <tr>
-                    <td data-label="Дата/время">${formatDateTime(measurement.endedAt)}</td>
-                    <td data-label="Сотрудник">${escapeHtml(measurement.employeeName)}</td>
-                    <td data-label="Профиль">${PROFILES[measurement.employeeProfile] || measurement.employeeProfile}</td>
-                    <td data-label="Факт, мин">${formatMinutes(measurement.durationMin)}</td>
-                    <td data-label="Расчет, мин">${formatMinutes(measurement.plannedMinutes)}</td>
-                    <td data-label="Отклонение">${formatMinutes(measurement.deviationMin)} мин / ${formatPercent(measurement.deviationPercent)}</td>
-                    <td data-label="Комментарий">${escapeHtml(measurement.comment || "")}</td>
-                    <td data-label="Действия">
-                      <div class="button-row" style="justify-content:flex-start;">
-                        <button type="button" data-edit-measurement="${measurement.id}">Комментарий</button>
-                        <button type="button" class="danger" data-delete-measurement="${measurement.id}">Удалить</button>
-                      </div>
-                    </td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }
-
-      function renderProgress() {
-        const coverage = operations.map((operation) => coverageForOperation(operation.id));
-        const any = coverage.filter((item) => item.status !== "none").length;
-        const full = coverage.filter((item) => item.status === "complete").length;
-        $("#coverageAny").textContent = `${any} / ${operations.length}`;
-        $("#coverageFull").textContent = `${full} / ${operations.length}`;
-        $("#measurementsTotal").textContent = String(state.measurements.length);
-      }
-
-      function median(values) {
-        const sorted = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
-        if (!sorted.length) return null;
-        const middle = Math.floor(sorted.length / 2);
-        return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
-      }
-
-      function renderSummary() {
-        $("#coverageSummary").innerHTML = `
-          <div class="table-wrap">
-            <table class="desktop-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Операция</th>
-                  <th>Эксперт</th>
-                  <th>Средний</th>
-                  <th>Новичок</th>
-                  <th>Статус</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${operations.map((operation) => {
-                  const coverage = coverageForOperation(operation.id);
-                  return `
-                    <tr>
-                      <td data-label="ID"><button type="button" class="ghost" data-summary-operation="${operation.id}">${operation.id}</button></td>
-                      <td data-label="Операция">${escapeHtml(operation.title)}</td>
-                      <td data-label="Эксперт">${coverage.expert ? "✓" : "-"}</td>
-                      <td data-label="Средний">${coverage.middle ? "✓" : "-"}</td>
-                      <td data-label="Новичок">${coverage.novice ? "✓" : "-"}</td>
-                      <td data-label="Статус"><span class="status-pill ${statusClass(coverage.status)}">${statusLabel(coverage.status)}</span></td>
-                    </tr>
-                  `;
-                }).join("")}
-              </tbody>
-            </table>
-          </div>
-        `;
-
-        $("#resultsSummary").innerHTML = `
-          <div class="table-wrap">
-            <table class="desktop-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Операция</th>
-                  <th>Расчет, мин</th>
-                  <th>Эксперт, мин</th>
-                  <th>Средний, мин</th>
-                  <th>Новичок, мин</th>
-                  <th>Итоговый вывод</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${operations.map((operation) => {
-                  const byOperation = state.measurements.filter((measurement) => measurement.operationId === operation.id);
-                  const medians = {
-                    expert: median(byOperation.filter((item) => item.employeeProfile === "expert").map((item) => Number(item.durationMin))),
-                    middle: median(byOperation.filter((item) => item.employeeProfile === "middle").map((item) => Number(item.durationMin))),
-                    novice: median(byOperation.filter((item) => item.employeeProfile === "novice").map((item) => Number(item.durationMin)))
-                  };
-                  const measured = Object.values(medians).filter((value) => value !== null);
-                  const medianAll = median(measured);
-                  let conclusion = "нет данных";
-                  if (medianAll !== null && operation.plannedMinutes > 0) {
-                    const deviation = (medianAll / operation.plannedMinutes - 1) * 100;
-                    conclusion = Math.abs(deviation) <= 10 ? "расчет близок" : deviation > 10 ? "выше расчета" : "ниже расчета";
-                  } else if (operation.plannedMinutes === 0 && measured.length) {
-                    conclusion = "расчет 0 мин";
-                  }
-                  return `
-                    <tr>
-                      <td data-label="ID"><button type="button" class="ghost" data-summary-operation="${operation.id}">${operation.id}</button></td>
-                      <td data-label="Операция">${escapeHtml(operation.title)}</td>
-                      <td data-label="Расчет, мин">${formatMinutes(operation.plannedMinutes)}</td>
-                      <td data-label="Эксперт, мин">${medians.expert === null ? "-" : formatMinutes(medians.expert)}</td>
-                      <td data-label="Средний, мин">${medians.middle === null ? "-" : formatMinutes(medians.middle)}</td>
-                      <td data-label="Новичок, мин">${medians.novice === null ? "-" : formatMinutes(medians.novice)}</td>
-                      <td data-label="Итоговый вывод">${conclusion}</td>
-                    </tr>
-                  `;
-                }).join("")}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }
-
-      function updateSticky() {
-        const operation = activeOperation();
-        const employee = activeEmployee();
-        $("#stickyOperation").textContent = `Операция: ${operation ? operation.id : "не выбрана"}`;
-        $("#stickyEmployee").textContent = `Сотрудник: ${employee ? employee.name : "не выбран"}`;
-      }
-
-      function selectOperation(operationId) {
-        if (isTimerActive() && timer.operationId && timer.operationId !== operationId) {
-          const current = operationById(timer.operationId);
-          showWarning(`Сейчас идет замер по ${current ? current.id : timer.operationId}. Завершите или сбросьте таймер перед переходом к другому блоку.`);
-          return;
-        }
-        state.selectedOperationId = operationId;
-        saveState();
-        clearWarning();
-        renderAll();
-        $("#operationPanel").scrollIntoView({ block: "start" });
-      }
-
-      function selectEmployee(employeeId) {
-        if (isTimerActive() && timer.employeeId && timer.employeeId !== employeeId) {
-          showWarning("Сейчас идет замер по другому сотруднику. Завершите или сбросьте таймер перед сменой сотрудника.");
-          return;
-        }
-        state.selectedEmployeeId = employeeId;
-        saveState();
-        clearWarning();
-        renderAll();
-      }
-
-      function addEmployee(event) {
-        event.preventDefault();
-        const name = $("#employeeName").value.trim();
-        if (!name) return;
-        const employee = {
-          id: `emp_${Date.now()}`,
-          name,
-          role: $("#employeeRole").value.trim(),
-          profile: $("#employeeProfile").value,
-          comment: $("#employeeComment").value.trim()
-        };
-        state.employees.push(employee);
-        state.selectedEmployeeId = employee.id;
-        saveState();
-        event.target.reset();
-        $("#employeeProfile").value = "expert";
-        renderAll();
-      }
-
-      function deleteEmployee(employeeId) {
-        if (isTimerActive() && timer.employeeId === employeeId) {
-          showWarning("Нельзя удалить сотрудника, по которому идет активный замер.");
-          return;
-        }
-        const employee = state.employees.find((item) => item.id === employeeId);
-        if (!employee) return;
-        if (!confirm(`Удалить сотрудника "${employee.name}"? Замеры останутся в истории.`)) return;
-        state.employees = state.employees.filter((item) => item.id !== employeeId);
-        if (state.selectedEmployeeId === employeeId) state.selectedEmployeeId = "";
-        saveState();
-        renderAll();
-      }
-
-      function startTimer() {
-        const operation = activeOperation();
-        const employee = activeEmployee();
-        if (!employee) {
-          showWarning("Таймер нельзя запустить: сотрудник не выбран.");
-          return;
-        }
-        if (!operation) {
-          showWarning("Таймер нельзя запустить: операция не выбрана.");
-          return;
-        }
-        const now = isoNow();
-        timer = {
-          operationId: operation.id,
-          employeeId: employee.id,
-          startedAt: now,
-          runningSince: now,
-          elapsedBeforePauseSec: 0,
-          status: "running"
-        };
-        saveTimer();
-        clearWarning();
-        renderTimer();
-      }
-
-      function pauseTimer() {
-        if (timer.status !== "running") return;
+      // TIMER
+      $("#timerStartBtn").onclick = () => {
+        timer = { operationId: activeOp().id, employeeId: activeEmp().id, startedAt: isoNow(), runningSince: isoNow(), elapsedBeforePauseSec: 0, status: "running" };
+        saveTimer(); renderAll();
+      };
+      $("#timerPauseBtn").onclick = () => {
         timer.elapsedBeforePauseSec = getElapsedSec();
-        timer.runningSince = "";
-        timer.status = "paused";
-        saveTimer();
-        renderTimer();
-      }
-
-      function resumeTimer() {
-        if (timer.status !== "paused") return;
-        timer.runningSince = isoNow();
-        timer.status = "running";
-        saveTimer();
-        renderTimer();
-      }
-
-      function resetTimer() {
-        if (timer.status === "idle") return;
-        if (!confirm("Сбросить текущий замер без записи?")) return;
-        timer = defaultTimer();
-        saveTimer();
-        clearWarning();
-        renderTimer();
-      }
-
-      function finishTimer() {
-        if (timer.status === "idle") return;
-        const operation = operationById(timer.operationId);
-        const employee = state.employees.find((item) => item.id === timer.employeeId);
-        if (!operation || !employee) {
-          showWarning("Не удалось записать замер: операция или сотрудник не найдены.");
-          return;
+        timer.runningSince = ""; timer.status = "paused";
+        saveTimer(); renderAll();
+      };
+      $("#timerResumeBtn").onclick = () => {
+        timer.runningSince = isoNow(); timer.status = "running";
+        saveTimer(); renderAll();
+      };
+      $("#timerResetBtn").onclick = () => {
+        if(confirm("Сбросить текущий замер без сохранения?")) { 
+          timer = defaultTimer(); saveTimer(); renderAll(); 
+          document.querySelectorAll('.checklist-item-cb').forEach(c => c.checked = false); updateChecklistCount(); 
         }
-        const durationSec = getElapsedSec();
-        const durationMin = Number((durationSec / 60).toFixed(2));
-        const deviationMin = Number((durationMin - operation.plannedMinutes).toFixed(2));
-        const deviationPercent = operation.plannedMinutes > 0
-          ? Number(((durationMin / operation.plannedMinutes - 1) * 100).toFixed(1))
-          : null;
-        const endedAt = isoNow();
+      };
+      
+      $("#timerFinishBtn").onclick = () => {
+        if(timer.status === "idle") return;
+        timer.elapsedBeforePauseSec = getElapsedSec();
+        if(timer.status === "running") { timer.status = "paused"; timer.runningSince = ""; saveTimer(); renderAll(); }
+        
+        const op = operationById(timer.operationId);
+        const sec = timer.elapsedBeforePauseSec;
+        const min = Number((sec/60).toFixed(2));
+        const diff = Number((min - op.plannedMinutes).toFixed(2));
+        const checked = Array.from(document.querySelectorAll('.checklist-item-cb:checked')).map(c => c.value);
+
+        $("#confirmData").innerHTML = `
+          <div class="operation-title" style="margin-top:0;">${op.id} · ${op.title}</div>
+          <div class="meta-line-text mb-3">Сотрудник: ${state.employees.find(e=>e.id===timer.employeeId)?.name || ''}</div>
+          <div class="meta-line mb-2">
+             <span class="badge">Факт: ${formatDuration(sec)}</span>
+             <span class="badge">План: ${op.plannedMinutes} м</span>
+             <span class="badge">Откл: ${diff>0?'+':''}${diff} м</span>
+          </div>
+          <div class="meta-line"><span class="badge">Отмечено строк: ${checked.length} из ${op.rowsCount}</span></div>
+        `;
+        $("#measurementComment").value = "";
+        $("#confirmModal").classList.add("active");
+      };
+
+      $("#confirmCancelBtn").onclick = () => { $("#confirmModal").classList.remove("active"); };
+      $("#confirmSaveBtn").onclick = () => {
+        const op = operationById(timer.operationId);
+        const emp = state.employees.find(e => e.id === timer.employeeId);
+        const sec = timer.elapsedBeforePauseSec;
+        const min = Number((sec/60).toFixed(2));
+        const dev = Number((min - op.plannedMinutes).toFixed(2));
+        const checked = Array.from(document.querySelectorAll('.checklist-item-cb:checked')).map(c => c.value);
+
         state.measurements.push({
           id: `measurement_${Date.now()}`,
-          operationId: operation.id,
-          operationTitle: operation.title,
-          stage: operation.stage,
-          processBlock: operation.processBlock,
-          dealType: operation.dealType,
-          plannedMinutes: operation.plannedMinutes,
-          employeeId: employee.id,
-          employeeName: employee.name,
-          employeeRole: employee.role,
-          employeeProfile: employee.profile,
-          startedAt: timer.startedAt,
-          endedAt,
-          durationSec,
-          durationMin,
-          deviationMin,
-          deviationPercent,
-          comment: $("#measurementComment").value.trim(),
-          createdAt: isoNow()
+          operationId: op.id, operationTitle: op.title, stage: op.stage, processBlock: op.processBlock, dealType: op.dealType, plannedMinutes: op.plannedMinutes,
+          employeeId: emp.id, employeeName: emp.name, employeeRole: emp.role, employeeProfile: emp.profile,
+          startedAt: timer.startedAt, endedAt: isoNow(), durationSec: sec, durationMin: min, deviationMin: dev, deviationPercent: null,
+          checkedItems: checked, comment: $("#measurementComment").value.trim(), createdAt: isoNow()
         });
+        
         timer = defaultTimer();
-        $("#measurementComment").value = "";
-        saveState();
-        saveTimer();
-        clearWarning();
+        saveTimer(); saveState();
+        document.querySelectorAll('.checklist-item-cb').forEach(c => c.checked = false);
+        $("#confirmModal").classList.remove("active");
         renderAll();
-      }
+        showNotice("Замер успешно сохранен", "success");
+      };
 
-      function editMeasurementComment(id) {
-        const measurement = state.measurements.find((item) => item.id === id);
-        if (!measurement) return;
-        const next = prompt("Комментарий к замеру", measurement.comment || "");
-        if (next === null) return;
-        measurement.comment = next.trim();
-        saveState();
-        renderMeasurements();
-        renderSummary();
-      }
+      function operationById(id) { return operations.find(o => o.id === id); }
 
-      function deleteMeasurement(id) {
-        if (!confirm("Удалить замер?")) return;
-        state.measurements = state.measurements.filter((item) => item.id !== id);
-        saveState();
-        renderAll();
+      // Export / Import
+      function downloadFile(fn, txt) {
+        const bl = new Blob([txt], {type: "text/plain;charset=utf-8"});
+        const a = document.createElement("a"); a.href = URL.createObjectURL(bl); a.download = fn; a.click();
       }
+      
+      $("#exportCsvBtn").onclick = () => {
+        const header = ["session_date","auditor","site","operation_id","operation_title","stage","process_block","deal_type","planned_minutes","employee_id","employee_name","employee_role","employee_profile","started_at","ended_at","duration_sec","duration_min","deviation_min","deviation_percent","checked_items","comment"].join(";") + "\\n";
+        const rows = state.measurements.map(m => [
+          state.session.date, state.session.auditor, state.session.site,
+          m.operationId, m.operationTitle, m.stage, m.processBlock, m.dealType, m.plannedMinutes,
+          m.employeeId, m.employeeName, m.employeeRole, m.employeeProfile,
+          m.startedAt, m.endedAt, m.durationSec, m.durationMin, m.deviationMin, m.deviationPercent||'',
+          (m.checkedItems||[]).join(","), m.comment||""
+        ].join(";")).join("\\n");
+        downloadFile("export.csv", "\\ufeff" + header + rows);
+      };
+      
+      $("#exportSessionBtn").onclick = () => {
+         const payload = { version: "1.0", state, timer, exportedAt: isoNow() };
+         downloadFile("session.json", JSON.stringify(payload, null, 2));
+      };
 
-      function downloadFile(filename, content, type) {
-        const blob = new Blob([content], { type });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-      }
-
-      function csvEscape(value) {
-        if (value === null || value === undefined) return "";
-        const text = String(value).replaceAll('"', '""');
-        return `"${text}"`;
-      }
-
-      function csvNumber(value) {
-        if (value === null || value === undefined || Number.isNaN(Number(value))) return "";
-        return String(value).replace(".", ",");
-      }
-
-      function exportCsv() {
-        const columns = [
-          "session_date",
-          "auditor",
-          "site",
-          "operation_id",
-          "operation_title",
-          "stage",
-          "process_block",
-          "deal_type",
-          "planned_minutes",
-          "employee_id",
-          "employee_name",
-          "employee_role",
-          "employee_profile",
-          "started_at",
-          "ended_at",
-          "duration_sec",
-          "duration_min",
-          "deviation_min",
-          "deviation_percent",
-          "comment"
-        ];
-        const rows = state.measurements.map((measurement) => [
-          state.session.date,
-          state.session.auditor,
-          state.session.site,
-          measurement.operationId,
-          measurement.operationTitle,
-          measurement.stage,
-          measurement.processBlock,
-          measurement.dealType,
-          csvNumber(measurement.plannedMinutes),
-          measurement.employeeId,
-          measurement.employeeName,
-          measurement.employeeRole,
-          measurement.employeeProfile,
-          measurement.startedAt,
-          measurement.endedAt,
-          measurement.durationSec,
-          csvNumber(measurement.durationMin),
-          csvNumber(measurement.deviationMin),
-          csvNumber(measurement.deviationPercent),
-          measurement.comment
-        ].map(csvEscape).join(";"));
-        const csv = "\ufeff" + [columns.join(";"), ...rows].join("\n");
-        downloadFile(`di_measurements_${state.session.date || todayIso()}.csv`, csv, "text/csv;charset=utf-8");
-      }
-
-      function exportJson() {
-        const payload = {
-          session: state.session,
-          employees: state.employees,
-          measurements: state.measurements,
-          exportedAt: isoNow()
-        };
-        downloadFile(`di_measurements_${state.session.date || todayIso()}.json`, JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
-      }
-
-      function exportSession() {
-        const payload = {
-          version: "1.0",
-          session: state.session,
-          employees: state.employees,
-          measurements: state.measurements,
-          activeState: {
-            selectedEmployeeId: state.selectedEmployeeId,
-            selectedOperationId: state.selectedOperationId,
-            timer
-          },
-          exportedAt: isoNow()
-        };
-        downloadFile(`di_session_${state.session.date || todayIso()}.json`, JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
-      }
-
-      function importSessionFile(file) {
-        if (!file) return;
+      $("#importSessionBtn").onclick = () => $("#importSessionInput").click();
+      $("#importSessionInput").onchange = (e) => {
+        const f = e.target.files[0];
+        if(!f) return;
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = (ev) => {
           try {
-            const payload = JSON.parse(String(reader.result || ""));
-            if (!payload || typeof payload !== "object") throw new Error("bad payload");
-            if (!confirm("Импортировать сессию? Текущие сотрудники и замеры будут заменены.")) return;
-            state.session = payload.session || defaultState().session;
-            state.employees = Array.isArray(payload.employees) ? payload.employees : [];
-            state.measurements = Array.isArray(payload.measurements) ? payload.measurements : [];
-            state.selectedEmployeeId = payload.activeState?.selectedEmployeeId || "";
-            state.selectedOperationId = payload.activeState?.selectedOperationId || operations[0]?.id || "";
-            state.filters = defaultState().filters;
-            timer = payload.activeState?.timer ? { ...defaultTimer(), ...payload.activeState.timer } : defaultTimer();
-            if (timer.status === "running") {
-              timer.elapsedBeforePauseSec = getElapsedSec(timer);
-              timer.runningSince = "";
-              timer.status = "paused";
-              lastWarning = "Импортированный таймер восстановлен как пауза.";
+            const data = JSON.parse(ev.target.result);
+            if(data.state) {
+              state = { ...defaultState(), ...data.state };
+              timer = { ...defaultTimer(), ...(data.timer || {}) };
+              saveState(); saveTimer(); renderAll();
+              showNotice("Сессия успешно импортирована", "success");
+            } else {
+              showNotice("Некорректный формат файла сессии", "danger");
             }
-            saveState();
-            saveTimer();
-            renderAll();
-          } catch (error) {
-            console.warn(error);
-            alert("Не удалось импортировать JSON сессии.");
-          } finally {
-            $("#importSessionInput").value = "";
+          } catch(err) {
+            showNotice("Ошибка при чтении JSON", "danger");
           }
         };
-        reader.readAsText(file, "utf-8");
-      }
+        reader.readAsText(f);
+      };
 
-      function clearSession() {
-        if (!confirm("Вы уверены? Все сотрудники и замеры будут удалены из браузера.")) return;
-        state = defaultState();
-        timer = defaultTimer();
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(TIMER_KEY);
-        renderAll();
-      }
+      $("#clearSessionBtn").onclick = () => {
+        if(prompt("Для очистки введите: ОЧИСТИТЬ") === "ОЧИСТИТЬ") { localStorage.clear(); location.reload(); }
+      };
 
-      function bindEvents() {
-        $("#employeeForm").addEventListener("submit", addEmployee);
-
-        ["Auditor", "Date", "Site", "Comment"].forEach((field) => {
-          const key = field.toLowerCase();
-          $(`#session${field}`).addEventListener("input", (event) => {
-            state.session[key] = event.target.value;
-            saveState();
-            updateSticky();
-          });
-        });
-
-        $("#filterSearch").addEventListener("input", (event) => {
-          state.filters.search = event.target.value;
-          saveState();
-          renderOperations();
-        });
-        $("#filterStage").addEventListener("change", (event) => {
-          state.filters.stage = event.target.value;
-          saveState();
-          renderOperations();
-        });
-        $("#filterDeal").addEventListener("change", (event) => {
-          state.filters.deal = event.target.value;
-          saveState();
-          renderOperations();
-        });
-        $("#filterStatus").addEventListener("change", (event) => {
-          state.filters.status = event.target.value;
-          saveState();
-          renderOperations();
-        });
-
-        document.addEventListener("click", (event) => {
-          const operationButton = event.target.closest("[data-operation-id]");
-          if (operationButton) selectOperation(operationButton.dataset.operationId);
-
-          const employeeSelect = event.target.closest("[data-employee-select]");
-          if (employeeSelect) selectEmployee(employeeSelect.dataset.employeeSelect);
-
-          const employeeDelete = event.target.closest("[data-employee-delete]");
-          if (employeeDelete) deleteEmployee(employeeDelete.dataset.employeeDelete);
-
-          const editMeasurement = event.target.closest("[data-edit-measurement]");
-          if (editMeasurement) editMeasurementComment(editMeasurement.dataset.editMeasurement);
-
-          const deleteMeasurementButton = event.target.closest("[data-delete-measurement]");
-          if (deleteMeasurementButton) deleteMeasurement(deleteMeasurementButton.dataset.deleteMeasurement);
-
-          const summaryOperation = event.target.closest("[data-summary-operation]");
-          if (summaryOperation) selectOperation(summaryOperation.dataset.summaryOperation);
-
-          const summaryTab = event.target.closest("[data-summary-tab]");
-          if (summaryTab) {
-            const tab = summaryTab.dataset.summaryTab;
-            document.querySelectorAll("[data-summary-tab]").forEach((button) => button.classList.toggle("primary", button.dataset.summaryTab === tab));
-            $("#coverageSummary").hidden = tab !== "coverage";
-            $("#resultsSummary").hidden = tab !== "results";
-          }
-        });
-
-        $("#timerStartBtn").addEventListener("click", startTimer);
-        $("#timerPauseBtn").addEventListener("click", pauseTimer);
-        $("#timerResumeBtn").addEventListener("click", resumeTimer);
-        $("#timerFinishBtn").addEventListener("click", finishTimer);
-        $("#timerResetBtn").addEventListener("click", resetTimer);
-
-        $("#exportCsvBtn").addEventListener("click", exportCsv);
-        $("#exportJsonBtn").addEventListener("click", exportJson);
-        $("#exportSessionBtn").addEventListener("click", exportSession);
-        $("#importSessionBtn").addEventListener("click", () => $("#importSessionInput").click());
-        $("#importSessionInput").addEventListener("change", (event) => importSessionFile(event.target.files[0]));
-        $("#clearSessionBtn").addEventListener("click", clearSession);
-      }
-
-      function validateOperations() {
-        const errors = [];
-        if (operations.length !== 48) errors.push(`Ожидалось 48 операций, загружено ${operations.length}`);
-        operations.forEach((operation) => {
-          ["id", "title", "stage", "processBlock", "role", "plannedMinutes", "rowsCount", "dealType", "items"].forEach((key) => {
-            if (operation[key] === undefined || operation[key] === "") errors.push(`${operation.id || "operation"}: нет ${key}`);
-          });
-          if (!Array.isArray(operation.items) || !operation.items.length) errors.push(`${operation.id}: нет состава блока`);
-          if (Array.isArray(operation.items) && operation.items.length !== operation.rowsCount) errors.push(`${operation.id}: строк ${operation.rowsCount}, элементов ${operation.items.length}`);
-        });
-        if (errors.length) {
-          console.error(errors);
-          showWarning("Справочник операций загружен с ошибками. Подробности в консоли.");
-        }
-      }
-
-      bindEvents();
-      validateOperations();
+      setMobileView(state.ui.mobileView || "measure");
       renderAll();
-      setInterval(updateTimerUI, 500);
+      setInterval(updateTimerDisplay, 500);
     })();
   </script>
 </body>
