@@ -234,7 +234,7 @@
     .empty-note-desc { font-size: 14px; margin-bottom: 16px; line-height: 1.4; color: var(--text-soft); }
 
     /* Progress Counters */
-    .counter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .counter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 10px; }
     .counter {
       border-radius: var(--radius-lg);
       border: 1px solid var(--line);
@@ -283,6 +283,9 @@
     .operation-title { margin: 8px 0 12px; font-weight: 800; font-size: 15px; line-height: 1.3; color: #102a43; }
     .operation-card-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--text-soft); }
     .operation-card-bottom .select-op-btn { min-height: 36px; padding: 6px 16px; font-size: 13px; margin-left: auto; }
+    .operation-card-actions { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; margin-top: 8px; }
+    .operation-card-actions button { min-height: 34px; padding: 6px 12px; font-size: 12px; }
+    .custom-comment { width: 100%; font-size: 12px; color: var(--text-soft); line-height: 1.35; margin-top: 2px; }
 
     /* Employee Screen */
     .employee-item { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; background: #ffffff; box-shadow: var(--shadow-xs); margin-bottom: 12px; }
@@ -304,8 +307,13 @@
     .items-list { border: 0; border-radius: 0; overflow: visible; display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
     .items-list li { border: 1px solid var(--line); border-radius: var(--radius-md); background: #ffffff; overflow: hidden; box-shadow: var(--shadow-xs); display: flex; align-items: stretch; transition: background 0.2s, border-color 0.2s; }
     .items-list li.checked { border-color: var(--success-border); background: var(--success-soft); }
+    .items-list li.custom-item-row { border-color: var(--primary-border); }
     .items-list input[type="checkbox"] { width: 22px; height: 22px; margin: 0 12px 0 0; cursor: pointer; flex-shrink: 0; accent-color: var(--primary); }
     .items-list label { min-height: 50px; padding: 14px; background: transparent; display: flex; align-items: flex-start; font-weight: 600; color: var(--text); font-size: 14px; cursor: pointer; line-height: 1.4; flex: 1; margin: 0; }
+    .item-text-wrap { display: grid; gap: 6px; }
+    .item-comment { font-size: 12px; color: var(--text-soft); font-weight: 600; line-height: 1.35; }
+    .item-row-actions { display: flex; gap: 6px; align-items: center; padding: 10px 12px 10px 0; flex-shrink: 0; }
+    .item-row-actions button { min-height: 32px; padding: 5px 9px; font-size: 12px; }
 
     /* Alerts */
     .alert { border-radius: var(--radius-md); padding: 14px 16px; font-weight: 700; margin-bottom: 16px; display: none; font-size: 14px; }
@@ -324,8 +332,18 @@
       background: #ffffff; border: 1px solid rgba(255, 255, 255, 0.72); border-radius: var(--radius-xl);
       padding: 26px 22px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg);
     }
+    .modal-content.modal-wide { max-width: 720px; }
     .modal-content h2 { margin-bottom: 18px; color: var(--primary-dark); font-size: 20px; }
     .modal-actions { display: grid; gap: 12px; margin-top: 24px; }
+    .check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; }
+    .check-option {
+      min-height: 42px; display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; color: var(--text);
+      font-size: 13px; font-weight: 750; cursor: pointer;
+    }
+    .check-option input { width: 18px; height: 18px; min-height: 18px; padding: 0; flex-shrink: 0; accent-color: var(--primary); }
+    .form-section-title { color: var(--primary-dark); font-size: 14px; font-weight: 850; margin-top: 6px; }
+    .panel-header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
     
     @keyframes modalIn {
       from { opacity: 0; transform: translateY(8px) scale(0.98); }
@@ -420,6 +438,146 @@
     </div>
   </div>
 
+  <!-- Custom Group Modal -->
+  <div class="modal-overlay" id="customGroupModal">
+    <div class="modal-content modal-wide">
+      <h2 id="customGroupModalTitle">Добавить фактическую группу</h2>
+      <form id="customGroupForm" class="form-grid">
+        <input type="hidden" id="customGroupId">
+
+        <div class="form-section-title">Основные параметры</div>
+        <label>Название группы <input id="customGroupTitle" required autocomplete="off"></label>
+        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));">
+          <label>Этап
+            <select id="customGroupStage">
+              <option value="ФЛ">ФЛ</option>
+              <option value="ПИ">ПИ</option>
+              <option value="КОД">КОД</option>
+              <option value="ДОП">ДОП</option>
+            </select>
+          </label>
+          <label>Блок процесса <input id="customGroupProcessBlock" list="processBlockOptions" required autocomplete="off"></label>
+          <label>Роль <input id="customGroupRole" required autocomplete="off" value="Персональные менеджеры"></label>
+        </div>
+        <datalist id="processBlockOptions"></datalist>
+
+        <div class="form-section-title">Продуктовый охват</div>
+        <div class="check-grid" id="customGroupGoals">
+          <label class="check-option"><input type="checkbox" value="izhs_jd"> ИЖС+ЖД</label>
+          <label class="check-option"><input type="checkbox" value="gzh"> ГЖ</label>
+          <label class="check-option"><input type="checkbox" value="ddu"> ДДУ</label>
+        </div>
+
+        <div class="form-section-title">Описание фактической работы</div>
+        <label>Причина добавления
+          <select id="customGroupReason">
+            <option value="нет в справочнике">нет в справочнике</option>
+            <option value="не подходит ни одна группа">не подходит ни одна группа</option>
+            <option value="новый фактический сценарий">новый фактический сценарий</option>
+            <option value="требует методологической проверки">требует методологической проверки</option>
+          </select>
+        </label>
+        <label>Подробное описание <textarea id="customGroupDescription" required></textarea></label>
+        <label>Комментарий проверяющего <textarea id="customGroupComment" required></textarea></label>
+
+        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));">
+          <label>Похожая базовая группа <select id="customGroupSimilarBase"></select></label>
+          <label>Регулярность
+            <select id="customGroupRegularity">
+              <option value="unknown">неизвестно</option>
+              <option value="one_time">разовая</option>
+              <option value="rare">редкая</option>
+              <option value="regular">регулярная</option>
+            </select>
+          </label>
+          <label>Источник наблюдения
+            <select id="customGroupObservationSource">
+              <option value="measurement">замер</option>
+              <option value="employee_comment">комментарий сотрудника</option>
+              <option value="auditor_observation">наблюдение проверяющего</option>
+              <option value="other">другое</option>
+            </select>
+          </label>
+        </div>
+
+        <label>Начальный состав операций
+          <textarea id="customGroupInitialItems" placeholder="Каждая строка станет отдельной операцией внутри группы"></textarea>
+        </label>
+
+        <div class="modal-actions">
+          <button type="submit" class="primary" id="customGroupSaveBtn">Создать группу</button>
+          <button type="button" class="ghost" id="customGroupCancelBtn">Отмена</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom Item Modal -->
+  <div class="modal-overlay" id="customItemModal">
+    <div class="modal-content modal-wide">
+      <h2 id="customItemModalTitle">Добавить операцию в группу</h2>
+      <form id="customItemForm" class="form-grid">
+        <input type="hidden" id="customItemId">
+        <label>Родительская группа <input id="customItemParentLabel" readonly></label>
+        <label>Текст операции <textarea id="customItemText" required></textarea></label>
+
+        <div class="form-section-title">Цель кредита</div>
+        <div class="check-grid" id="customItemGoals">
+          <label class="check-option"><input type="checkbox" value="izhs_jd"> ИЖС+ЖД</label>
+          <label class="check-option"><input type="checkbox" value="gzh"> ГЖ</label>
+          <label class="check-option"><input type="checkbox" value="ddu"> ДДУ</label>
+        </div>
+
+        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));">
+          <label>Короткая метка <input id="customItemDealTag" list="customItemTagOptions" required autocomplete="off"></label>
+          <label>Причина добавления
+            <select id="customItemReason">
+              <option value="нет в составе группы">нет в составе группы</option>
+              <option value="детализация существующей операции">детализация существующей операции</option>
+              <option value="новый сценарий">новый сценарий</option>
+              <option value="методологическое уточнение">методологическое уточнение</option>
+            </select>
+          </label>
+        </div>
+        <datalist id="customItemTagOptions">
+          <option value="ИЖС">
+          <option value="ЖД">
+          <option value="ГЖ">
+          <option value="ДДУ">
+          <option value="ИЖС+ЖД">
+          <option value="все цели">
+          <option value="уточн.">
+        </datalist>
+
+        <label>Комментарий проверяющего <textarea id="customItemComment" required></textarea></label>
+        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));">
+          <label>Похожая строка в группе <select id="customItemSimilarBase"></select></label>
+          <label>Регулярность
+            <select id="customItemRegularity">
+              <option value="unknown">неизвестно</option>
+              <option value="one_time">разовая</option>
+              <option value="rare">редкая</option>
+              <option value="regular">регулярная</option>
+            </select>
+          </label>
+          <label>Источник наблюдения
+            <select id="customItemObservationSource">
+              <option value="measurement">замер</option>
+              <option value="employee_comment">комментарий сотрудника</option>
+              <option value="auditor_observation">наблюдение проверяющего</option>
+              <option value="other">другое</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="primary" id="customItemSaveBtn">Добавить операцию</button>
+          <button type="button" class="ghost" id="customItemCancelBtn">Отмена</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <main class="app">
     <div class="desktop-left">
       <!-- Операции -->
@@ -427,6 +585,7 @@
         <div class="panel">
           <div class="panel-header">
             <h2>Операции <span class="badge" id="operationCountBadge">0</span></h2>
+            <button type="button" id="showAddCustomGroupBtn" class="ghost">+ Группа</button>
           </div>
           <div class="panel-body">
             <input type="search" id="filterSearch" class="search-input" placeholder="Поиск по ID / названию...">
@@ -454,6 +613,13 @@
               <div class="chip" data-val="none">Не измерено</div>
               <div class="chip" data-val="partial">Частично</div>
               <div class="chip" data-val="complete">Полностью</div>
+            </div>
+
+            <div class="muted-bold">Источник:</div>
+            <div class="chips-group" id="chipsSource">
+              <div class="chip active" data-val="all">Все</div>
+              <div class="chip" data-val="base">Базовые</div>
+              <div class="chip" data-val="custom">Добавленные</div>
             </div>
 
             <div id="operationsList" class="mt-4"></div>
@@ -531,7 +697,10 @@
           <div class="panel" id="checklistPanel">
             <div class="panel-header">
               <h3>Состав операции</h3>
-              <span class="badge" id="checkedCountBadge">0 / 0</span>
+              <div class="panel-header-actions">
+                <span class="badge" id="checkedCountBadge">0 / 0</span>
+                <button type="button" id="showAddCustomItemBtn" class="ghost">+ Операция</button>
+              </div>
             </div>
             <ul class="items-list" id="operationChecklist">
               <!-- params -->
@@ -558,6 +727,8 @@
               <div class="counter"><strong id="coverageAny">0</strong><span>Начато</span></div>
               <div class="counter"><strong id="coverageFull">0</strong><span>Закрыто</span></div>
               <div class="counter"><strong id="measurementsTotal">0</strong><span>Замеров</span></div>
+              <div class="counter"><strong id="customGroupsTotal">0</strong><span>Доб. групп</span></div>
+              <div class="counter"><strong id="customItemsTotal">0</strong><span>Доб. операций</span></div>
             </div>
             <p class="meta-line-text mt-4" id="progressScopeNote"></p>
             
@@ -642,6 +813,8 @@
         gzh: { key: "gzh", label: "ГЖ", shortLabel: "ГЖ" },
         ddu: { key: "ddu", label: "ДДУ", shortLabel: "ДДУ" }
       };
+      const CUSTOM_GOAL_KEYS = ["izhs_jd", "gzh", "ddu"];
+      const SOURCE_LABELS = { base: "Базовая", custom_group: "Добавлена проверяющим" };
 
       const todayIso = () => new Date().toISOString().slice(0, 10);
       const isoNow = () => new Date().toISOString();
@@ -651,9 +824,11 @@
         session: { auditor: "", date: todayIso(), site: "", comment: "" },
         employees: [],
         measurements: [],
+        customGroups: [],
+        customItems: [],
         selectedEmployeeId: "",
         selectedOperationId: operations[0] ? operations[0].id : "",
-        filters: { search: "", stage: "all", deal: "all", status: "all" }
+        filters: { search: "", stage: "all", deal: "all", status: "all", source: "all" }
       });
 
       const defaultTimer = () => ({
@@ -710,21 +885,137 @@
           session: { ...base.session, ...(saved.session || {}) },
           filters: { ...base.filters, ...(saved.filters || {}) },
           employees: Array.isArray(saved.employees) ? saved.employees : [],
-          measurements: Array.isArray(saved.measurements) ? saved.measurements.map(migrateMeasurement) : []
+          measurements: Array.isArray(saved.measurements) ? saved.measurements.map(migrateMeasurement) : [],
+          customGroups: Array.isArray(saved.customGroups) ? saved.customGroups.map(migrateCustomGroup) : [],
+          customItems: Array.isArray(saved.customItems) ? saved.customItems.map(migrateCustomItem) : []
         };
 
         if (!CREDIT_GOALS[next.filters.deal]) next.filters.deal = "all";
+        if (!["all", "base", "custom"].includes(next.filters.source)) next.filters.source = "all";
+        dedupeCustomEntityIds(next);
         return next;
       }
 
       function migrateMeasurement(measurement) {
         if (!measurement || typeof measurement !== "object") return measurement;
-        if (measurement.creditGoalKey) return measurement;
-        return {
+        const next = measurement.creditGoalKey ? { ...measurement } : {
           ...measurement,
           creditGoalKey: "legacy_unknown",
           creditGoalLabel: "Не указано / старый замер"
         };
+        if (!Array.isArray(next.checkedItemsDetailed)) {
+          next.checkedItemsDetailed = (next.checkedItems || []).map((text, index) => ({
+            id: `LEGACY-ITEM-${index + 1}`,
+            text,
+            dealTag: "",
+            sourceType: "legacy_item",
+            parentOperationId: next.operationId,
+            customComment: ""
+          }));
+        }
+        return next;
+      }
+
+      function migrateCustomGroup(group) {
+        if (!group || typeof group !== "object") return group;
+        const goals = sanitizeGoals(group.creditGoals);
+        const rowsCount = Number.isFinite(Number(group.rowsCount)) ? Number(group.rowsCount) : 0;
+        return {
+          ...group,
+          sourceType: "custom_group",
+          role: group.role || "Персональные менеджеры",
+          plannedMinutes: null,
+          rowsCount,
+          dealType: group.dealType || goals.map(goal => getCreditGoal(goal).shortLabel).join(" / "),
+          creditGoals: goals,
+          goalFlags: goalFlagsFromGoals(goals),
+          goalRowsCount: group.goalRowsCount || goalRowsFromGoals(goals, rowsCount),
+          coverageGroup: group.coverageGroup || coverageGroupFromGoals(goals),
+          goalComment: group.goalComment || "добавлено проверяющим",
+          items: Array.isArray(group.items) ? group.items : [],
+          customMeta: {
+            reason: "",
+            description: "",
+            comment: "",
+            regularity: "unknown",
+            observationSource: "measurement",
+            similarBaseOperationId: "",
+            createdAt: group.createdAt || isoNow(),
+            updatedAt: group.updatedAt || isoNow(),
+            createdByAuditor: "",
+            ...(group.customMeta || {})
+          },
+          createdAt: group.createdAt || group.customMeta?.createdAt || isoNow(),
+          updatedAt: group.updatedAt || group.customMeta?.updatedAt || isoNow(),
+          createdByAuditor: group.createdByAuditor || group.customMeta?.createdByAuditor || "",
+          isArchived: Boolean(group.isArchived)
+        };
+      }
+
+      function migrateCustomItem(item) {
+        if (!item || typeof item !== "object") return item;
+        const goals = sanitizeGoals(item.creditGoals);
+        return {
+          ...item,
+          sourceType: "custom_item",
+          parentOperationId: item.parentOperationId || "",
+          text: item.text || "",
+          dealTag: item.dealTag || goalTagFromGoals(goals),
+          creditGoals: goals,
+          reason: item.reason || "нет в составе группы",
+          comment: item.comment || "",
+          regularity: item.regularity || "unknown",
+          observationSource: item.observationSource || "measurement",
+          similarBaseItemId: item.similarBaseItemId || "",
+          createdAt: item.createdAt || isoNow(),
+          updatedAt: item.updatedAt || isoNow(),
+          createdByAuditor: item.createdByAuditor || "",
+          isArchived: Boolean(item.isArchived)
+        };
+      }
+
+      function dedupeCustomEntityIds(nextState) {
+        const operationIds = new Set(operations.map(op => op.id));
+        let groupSeq = 1;
+        const groupIdMap = {};
+
+        nextState.customGroups.forEach(group => {
+          if (!group.id || operationIds.has(group.id)) {
+            const oldId = group.id;
+            while (operationIds.has(`CUSTOM-GRP-${String(groupSeq).padStart(3, "0")}`)) groupSeq++;
+            group.id = `CUSTOM-GRP-${String(groupSeq++).padStart(3, "0")}`;
+            if (oldId) groupIdMap[oldId] = group.id;
+          }
+          operationIds.add(group.id);
+        });
+
+        nextState.customItems.forEach(item => {
+          if (groupIdMap[item.parentOperationId]) item.parentOperationId = groupIdMap[item.parentOperationId];
+        });
+
+        nextState.measurements.forEach(measurement => {
+          if (groupIdMap[measurement.operationId]) measurement.operationId = groupIdMap[measurement.operationId];
+        });
+        if (groupIdMap[nextState.selectedOperationId]) nextState.selectedOperationId = groupIdMap[nextState.selectedOperationId];
+
+        const itemIds = new Set();
+        let itemSeq = 1;
+        const itemIdMap = {};
+        nextState.customItems.forEach(item => {
+          if (!item.id || itemIds.has(item.id)) {
+            const oldId = item.id;
+            while (itemIds.has(`CUSTOM-ITEM-${String(itemSeq).padStart(3, "0")}`)) itemSeq++;
+            item.id = `CUSTOM-ITEM-${String(itemSeq++).padStart(3, "0")}`;
+            if (oldId) itemIdMap[oldId] = item.id;
+          }
+          itemIds.add(item.id);
+        });
+
+        nextState.measurements.forEach(measurement => {
+          (measurement.checkedItemsDetailed || []).forEach(item => {
+            if (itemIdMap[item.id]) item.id = itemIdMap[item.id];
+          });
+        });
       }
 
       function getCreditGoal(key) {
@@ -735,30 +1026,137 @@
         return state.filters.deal || "all";
       }
 
+      function sanitizeGoals(goals) {
+        const source = Array.isArray(goals) ? goals : [];
+        const clean = source.filter(goal => CUSTOM_GOAL_KEYS.includes(goal));
+        return clean.length ? [...new Set(clean)] : [...CUSTOM_GOAL_KEYS];
+      }
+
+      function goalFlagsFromGoals(goals) {
+        return {
+          izhsJd: goals.includes("izhs_jd"),
+          gzh: goals.includes("gzh"),
+          ddu: goals.includes("ddu"),
+          ref: false
+        };
+      }
+
+      function goalRowsFromGoals(goals, total) {
+        return {
+          izhsJd: goals.includes("izhs_jd") ? total : 0,
+          gzh: goals.includes("gzh") ? total : 0,
+          ddu: goals.includes("ddu") ? total : 0,
+          total
+        };
+      }
+
+      function coverageGroupFromGoals(goals) {
+        return goals.map(goal => goal === "izhs_jd" ? "ИЖС_ЖД" : getCreditGoal(goal).shortLabel).join("; ");
+      }
+
+      function goalTagFromGoals(goals) {
+        return goals.length === CUSTOM_GOAL_KEYS.length ? "все цели" : goals.map(goal => getCreditGoal(goal).shortLabel).join("/");
+      }
+
+      function normalizeText(text) {
+        return String(text || "").toLowerCase().replace(/\s+/g, " ").trim();
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, ch => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        }[ch]));
+      }
+
+      function escapeAttr(value) {
+        return escapeHtml(value);
+      }
+
       function operationMatchesDeal(operation, dealKey) {
         if (!operation) return false;
         if (!dealKey || dealKey === "all") return true;
         return Array.isArray(operation.creditGoals) && operation.creditGoals.includes(dealKey);
       }
 
+      function getAllOperations(includeArchived = false) {
+        const baseOperations = operations.map(o => ({ ...o, sourceType: "base", isArchived: false }));
+        const customGroups = (state.customGroups || []).filter(g => includeArchived || !g.isArchived);
+        return [...baseOperations, ...customGroups];
+      }
+
+      function operationById(id) {
+        return getAllOperations(true).find(o => o.id === id);
+      }
+
+      function activeOp() {
+        return operationById(state.selectedOperationId);
+      }
+
+      function activeEmp() {
+        return state.employees.find(e => e.id === state.selectedEmployeeId);
+      }
+
+      function getOperationItems(operationId, includeArchived = false) {
+        const operation = operationById(operationId);
+        if (!operation) return [];
+
+        const baseItems = (operation.items || []).map((item, index) => ({
+          ...item,
+          id: item.id || `${operation.id}-BASE-ITEM-${index + 1}`,
+          sourceType: item.sourceType || (operation.sourceType === "custom_group" ? "custom_item" : "base_item"),
+          parentOperationId: operation.id,
+          isArchived: Boolean(item.isArchived)
+        })).filter(item => includeArchived || !item.isArchived);
+
+        const customItems = (state.customItems || [])
+          .filter(item => item.parentOperationId === operation.id && (includeArchived || !item.isArchived));
+
+        const seen = new Set();
+        return [...baseItems, ...customItems].filter(item => {
+          if (seen.has(item.id)) return false;
+          seen.add(item.id);
+          return true;
+        });
+      }
+
+      function getOperationRowsCount(operationId) {
+        return getOperationItems(operationId).length;
+      }
+
+      function itemMatchesDeal(item, dealKey) {
+        if (!dealKey || dealKey === "all") return true;
+        if (!Array.isArray(item.creditGoals) || !item.creditGoals.length) return true;
+        return item.creditGoals.includes(dealKey);
+      }
+
       function goalRowsForOperation(operation, dealKey) {
+        if (operation.sourceType === "custom_group") {
+          return getOperationItems(operation.id).filter(item => itemMatchesDeal(item, dealKey)).length;
+        }
         const rows = operation.goalRowsCount || {};
-        if (dealKey === "izhs_jd") return rows.izhsJd || 0;
-        if (dealKey === "gzh") return rows.gzh || 0;
-        if (dealKey === "ddu") return rows.ddu || 0;
-        return rows.total || operation.rowsCount || 0;
+        const customRows = (state.customItems || [])
+          .filter(item => item.parentOperationId === operation.id && !item.isArchived && itemMatchesDeal(item, dealKey))
+          .length;
+        if (dealKey === "izhs_jd") return (rows.izhsJd || 0) + customRows;
+        if (dealKey === "gzh") return (rows.gzh || 0) + customRows;
+        if (dealKey === "ddu") return (rows.ddu || 0) + customRows;
+        return getOperationRowsCount(operation.id);
       }
 
       function operationGoalBadgeText(operation, dealKey = currentDealKey()) {
         if (!dealKey || dealKey === "all") return operation.coverageGroup || operation.dealType || "Все цели";
         const goal = getCreditGoal(dealKey);
-        return `${goal.shortLabel} · ${goalRowsForOperation(operation, dealKey)} из ${operation.rowsCount} строк`;
+        return `${goal.shortLabel} · ${goalRowsForOperation(operation, dealKey)} из ${getOperationRowsCount(operation.id)} строк`;
       }
 
       function ensureSelectedOperationInDeal() {
         const deal = currentDealKey();
         const selected = activeOp();
-        if (selected && operationMatchesDeal(selected, deal)) return;
+        if (selected && !selected.isArchived && operationMatchesDeal(selected, deal)) return;
 
         if (timer.status !== "idle") {
           const timerOperation = operationById(timer.operationId);
@@ -770,7 +1168,7 @@
           return;
         }
 
-        const first = operations.find(o => operationMatchesDeal(o, deal));
+        const first = getAllOperations().find(o => operationMatchesDeal(o, deal));
         state.selectedOperationId = first ? first.id : "";
         saveState();
       }
@@ -790,8 +1188,231 @@
         return { ...p, status: count === 3 ? "complete" : count > 0 ? "partial" : "none", count: m.length };
       }
 
-      function activeOp() { return operations.find(o => o.id === state.selectedOperationId); }
-      function activeEmp() { return state.employees.find(e => e.id === state.selectedEmployeeId); }
+      function nextCustomGroupId() {
+        const max = (state.customGroups || []).reduce((acc, group) => {
+          const match = String(group.id || "").match(/^CUSTOM-GRP-(\d+)$/);
+          return match ? Math.max(acc, Number(match[1])) : acc;
+        }, 0);
+        return `CUSTOM-GRP-${String(max + 1).padStart(3, "0")}`;
+      }
+
+      function nextCustomItemId() {
+        const allItems = [
+          ...(state.customItems || []),
+          ...(state.customGroups || []).flatMap(group => group.items || [])
+        ];
+        const max = allItems.reduce((acc, item) => {
+          const match = String(item.id || "").match(/^CUSTOM-ITEM-(\d+)$/);
+          return match ? Math.max(acc, Number(match[1])) : acc;
+        }, 0);
+        return `CUSTOM-ITEM-${String(max + 1).padStart(3, "0")}`;
+      }
+
+      function findSimilarOperations(title) {
+        const normalized = normalizeText(title);
+        if (!normalized) return [];
+        return getAllOperations()
+          .filter(op => {
+            const opTitle = normalizeText(op.title);
+            return opTitle.includes(normalized) || normalized.includes(opTitle);
+          })
+          .slice(0, 5);
+      }
+
+      function syncCustomGroupRows(groupId) {
+        const group = state.customGroups.find(g => g.id === groupId);
+        if (!group) return;
+        const count = getOperationItems(groupId).length;
+        group.rowsCount = count;
+        group.goalRowsCount = goalRowsFromGoals(group.creditGoals || [], count);
+        group.updatedAt = isoNow();
+        group.customMeta = { ...(group.customMeta || {}), updatedAt: group.updatedAt };
+      }
+
+      function createCustomGroup(payload) {
+        const id = nextCustomGroupId();
+        const now = isoNow();
+        const goals = sanitizeGoals(payload.creditGoals);
+        const group = {
+          id,
+          sourceType: "custom_group",
+          stage: payload.stage,
+          title: payload.title,
+          processBlock: payload.processBlock,
+          role: payload.role || "Персональные менеджеры",
+          plannedMinutes: null,
+          rowsCount: 0,
+          dealType: goals.map(goal => getCreditGoal(goal).shortLabel).join(" / "),
+          creditGoals: goals,
+          goalFlags: goalFlagsFromGoals(goals),
+          goalRowsCount: goalRowsFromGoals(goals, 0),
+          coverageGroup: coverageGroupFromGoals(goals),
+          goalComment: "добавлено проверяющим",
+          items: [],
+          customMeta: {
+            reason: payload.reason,
+            description: payload.description,
+            comment: payload.comment,
+            regularity: payload.regularity || "unknown",
+            observationSource: payload.observationSource || "measurement",
+            similarBaseOperationId: payload.similarBaseOperationId || "",
+            createdAt: now,
+            updatedAt: now,
+            createdByAuditor: state.session.auditor || ""
+          },
+          createdAt: now,
+          updatedAt: now,
+          createdByAuditor: state.session.auditor || "",
+          isArchived: false
+        };
+
+        state.customGroups.push(group);
+        (payload.initialItems || []).forEach(text => createCustomItem({
+          parentOperationId: id,
+          text,
+          creditGoals: goals,
+          dealTag: goalTagFromGoals(goals),
+          reason: "нет в справочнике",
+          comment: "Строка добавлена при создании пользовательской группы",
+          regularity: payload.regularity || "unknown",
+          observationSource: payload.observationSource || "measurement",
+          similarBaseItemId: ""
+        }, { skipSave: true }));
+        syncCustomGroupRows(id);
+        return group;
+      }
+
+      function updateCustomGroup(id, payload) {
+        const group = state.customGroups.find(g => g.id === id);
+        if (!group) return null;
+        const goals = sanitizeGoals(payload.creditGoals);
+        const now = isoNow();
+        Object.assign(group, {
+          stage: payload.stage,
+          title: payload.title,
+          processBlock: payload.processBlock,
+          role: payload.role || "Персональные менеджеры",
+          dealType: goals.map(goal => getCreditGoal(goal).shortLabel).join(" / "),
+          creditGoals: goals,
+          goalFlags: goalFlagsFromGoals(goals),
+          coverageGroup: coverageGroupFromGoals(goals),
+          updatedAt: now,
+          customMeta: {
+            ...(group.customMeta || {}),
+            reason: payload.reason,
+            description: payload.description,
+            comment: payload.comment,
+            regularity: payload.regularity || "unknown",
+            observationSource: payload.observationSource || "measurement",
+            similarBaseOperationId: payload.similarBaseOperationId || "",
+            updatedAt: now
+          }
+        });
+        (payload.initialItems || []).forEach(text => createCustomItem({
+          parentOperationId: id,
+          text,
+          creditGoals: goals,
+          dealTag: goalTagFromGoals(goals),
+          reason: "нет в справочнике",
+          comment: "Строка добавлена при редактировании пользовательской группы",
+          regularity: payload.regularity || "unknown",
+          observationSource: payload.observationSource || "measurement",
+          similarBaseItemId: ""
+        }, { skipSave: true }));
+        syncCustomGroupRows(id);
+        return group;
+      }
+
+      function createCustomItem(payload, options = {}) {
+        const now = isoNow();
+        const goals = sanitizeGoals(payload.creditGoals);
+        const item = {
+          id: nextCustomItemId(),
+          sourceType: "custom_item",
+          parentOperationId: payload.parentOperationId,
+          text: payload.text,
+          dealTag: payload.dealTag || goalTagFromGoals(goals),
+          creditGoals: goals,
+          reason: payload.reason || "нет в составе группы",
+          comment: payload.comment || "",
+          regularity: payload.regularity || "unknown",
+          observationSource: payload.observationSource || "measurement",
+          similarBaseItemId: payload.similarBaseItemId || "",
+          createdAt: now,
+          updatedAt: now,
+          createdByAuditor: state.session.auditor || "",
+          isArchived: false
+        };
+        state.customItems.push(item);
+        syncCustomGroupRows(item.parentOperationId);
+        if (!options.skipSave) saveState();
+        return item;
+      }
+
+      function updateCustomItem(id, payload) {
+        const item = state.customItems.find(x => x.id === id);
+        if (!item) return null;
+        const goals = sanitizeGoals(payload.creditGoals);
+        Object.assign(item, {
+          text: payload.text,
+          dealTag: payload.dealTag || goalTagFromGoals(goals),
+          creditGoals: goals,
+          reason: payload.reason || "нет в составе группы",
+          comment: payload.comment || "",
+          regularity: payload.regularity || "unknown",
+          observationSource: payload.observationSource || "measurement",
+          similarBaseItemId: payload.similarBaseItemId || "",
+          updatedAt: isoNow()
+        });
+        syncCustomGroupRows(item.parentOperationId);
+        return item;
+      }
+
+      function customGroupUsed(id) {
+        return state.measurements.some(m => m.operationId === id);
+      }
+
+      function customItemUsed(id) {
+        return state.measurements.some(m => (m.checkedItemsDetailed || []).some(item => item.id === id));
+      }
+
+      function archiveCustomGroup(id) {
+        if (timer.status !== "idle" && timer.operationId === id) {
+          showNotice("Нельзя удалить или архивировать текущую группу во время замера", "warning");
+          return;
+        }
+        if (customGroupUsed(id)) {
+          const group = state.customGroups.find(g => g.id === id);
+          if (group) {
+            group.isArchived = true;
+            group.updatedAt = isoNow();
+          }
+        } else {
+          state.customGroups = state.customGroups.filter(g => g.id !== id);
+          state.customItems = state.customItems.filter(item => item.parentOperationId !== id);
+        }
+        if (state.selectedOperationId === id) state.selectedOperationId = "";
+        saveState();
+        renderAll();
+      }
+
+      function archiveCustomItem(id) {
+        const item = state.customItems.find(x => x.id === id);
+        if (!item) return;
+        if (timer.status !== "idle" && timer.operationId === item.parentOperationId) {
+          showNotice("Нельзя удалить операцию текущей группы во время активного замера", "warning");
+          return;
+        }
+        if (customItemUsed(id)) {
+          item.isArchived = true;
+          item.updatedAt = isoNow();
+        } else {
+          state.customItems = state.customItems.filter(x => x.id !== id);
+        }
+        syncCustomGroupRows(item.parentOperationId);
+        saveState();
+        renderAll();
+      }
 
       /* -------------------------------------
          ROUTER 
@@ -864,30 +1485,51 @@
         const currentGoalText = deal === "all" ? "Все цели / общий режим" : goal.label;
         const p = coverageForOperation(op.id, deal);
         const coverBadge = p.status === 'complete' ? '<span class="status-pill complete">Полностью</span>' : p.status === 'partial' ? '<span class="status-pill partial">Частично</span>' : '<span class="status-pill empty">Нет замера</span>';
+        const sourceLabel = SOURCE_LABELS[op.sourceType] || "Базовая";
+        const customItemsInGroup = getOperationItems(op.id).filter(item => item.sourceType === "custom_item").length;
 
         $("#measureCurrentOperation").innerHTML = `
           <div class="operation-card-top mb-2">
-            <div class="meta-line"><span class="badge">${op.id}</span><span class="badge">${op.stage}</span>${coverBadge}</div>
+            <div class="meta-line"><span class="badge">${escapeHtml(op.id)}</span><span class="badge">${escapeHtml(op.stage)}</span>${coverBadge}${op.sourceType === 'custom_group' ? '<span class="badge">Добавлено проверяющим</span>' : ''}</div>
             <button type="button" class="ghost switch-view" data-target="operations">Сменить</button>
           </div>
-          <h3>${op.title}</h3>
+          <h3>${escapeHtml(op.title)}</h3>
           <div class="meta-line mt-4">
-            <span class="meta-line-text">Сделка: <strong class="text">${op.dealType}</strong></span>
-            <span class="meta-line-text">Цель кредита: <strong class="text">${currentGoalText}</strong></span>
+            <span class="meta-line-text">Сделка: <strong class="text">${escapeHtml(op.dealType)}</strong></span>
+            <span class="meta-line-text">Цель кредита: <strong class="text">${escapeHtml(currentGoalText)}</strong></span>
+            <span class="meta-line-text">Источник: <strong class="text">${sourceLabel}</strong></span>
+            <span class="meta-line-text">Добавлено операций: <strong class="text">${customItemsInGroup}</strong></span>
           </div>
         `;
 
         const cl = $("#operationChecklist");
-        if (cl.dataset.opId !== op.id) {
+        const items = getOperationItems(op.id);
+        const itemSignature = items.map(item => `${item.id}:${item.updatedAt || ""}`).join("|");
+        if (cl.dataset.opId !== op.id || cl.dataset.itemSignature !== itemSignature) {
+          const prevChecked = new Set(Array.from(document.querySelectorAll('.checklist-item-cb:checked')).map(c => c.dataset.itemId || c.value));
           cl.dataset.opId = op.id;
-          cl.innerHTML = (op.items || []).map((it, i) => `
-            <li>
+          cl.dataset.itemSignature = itemSignature;
+          cl.innerHTML = items.map((it, i) => {
+            const isCustom = it.sourceType === "custom_item";
+            const checked = prevChecked.has(it.id) || prevChecked.has(it.text) ? "checked" : "";
+            return `
+            <li class="${isCustom ? 'custom-item-row' : ''}">
               <label for="chk_${i}">
-                 <input type="checkbox" id="chk_${i}" class="checklist-item-cb" value="${it.text}">
-                 <span>${it.text} ${it.dealTag ? `<span class="badge">${it.dealTag}</span>` : ''}</span>
+                 <input type="checkbox" id="chk_${i}" class="checklist-item-cb" data-item-id="${escapeAttr(it.id)}" value="${escapeAttr(it.text)}" ${checked}>
+                 <span class="item-text-wrap">
+                   <span>${escapeHtml(it.text)} ${it.dealTag ? `<span class="badge">${escapeHtml(it.dealTag)}</span>` : ''} ${isCustom ? '<span class="badge">Добавлено проверяющим</span>' : ''}</span>
+                   ${it.comment ? `<span class="item-comment">Комментарий: ${escapeHtml(it.comment)}</span>` : ''}
+                 </span>
               </label>
+              ${isCustom ? `
+                <div class="item-row-actions">
+                  <button type="button" class="ghost edit-custom-item-btn" data-id="${escapeAttr(it.id)}">Редактировать</button>
+                  <button type="button" class="ghost delete-custom-item-btn" data-id="${escapeAttr(it.id)}">Удалить</button>
+                </div>
+              ` : ''}
             </li>
-          `).join("");
+          `;
+          }).join("");
           updateChecklistCount();
         }
       }
@@ -918,6 +1560,7 @@
         $("#timerResetBtn").classList.toggle("hidden", timer.status === "idle");
         $("#timerPauseBtn").classList.toggle("hidden", timer.status !== "running");
         $("#timerResumeBtn").classList.toggle("hidden", timer.status !== "paused");
+        $("#showAddCustomItemBtn").disabled = timer.status === "running";
 
         if (timer.status === "running") {
           if(lbl) { lbl.textContent = "Идет замер"; lbl.className = "status-pill partial"; }
@@ -932,16 +1575,30 @@
         document.querySelectorAll("#chipsDeal .chip").forEach(c => c.classList.toggle("active", c.dataset.val === currentDealKey()));
         document.querySelectorAll("#chipsStage .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.stage));
         document.querySelectorAll("#chipsStatus .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.status));
+        document.querySelectorAll("#chipsSource .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.source));
 
         const list = $("#operationsList");
         const query = state.filters.search.toLowerCase();
         const deal = currentDealKey();
         const st = state.filters.stage;
         const cov = state.filters.status;
+        const source = state.filters.source || "all";
 
-        const filtered = operations.filter(o => {
+        const filtered = getAllOperations().filter(o => {
           if (!operationMatchesDeal(o, deal)) return false;
-          if (query && !`${o.id} ${o.title} ${o.processBlock}`.toLowerCase().includes(query)) return false;
+          if (source === "base" && o.sourceType !== "base") return false;
+          if (source === "custom" && o.sourceType !== "custom_group") return false;
+          const haystack = [
+            o.id,
+            o.title,
+            o.processBlock,
+            o.dealType,
+            o.coverageGroup,
+            o.customMeta?.reason,
+            o.customMeta?.description,
+            o.customMeta?.comment
+          ].join(" ").toLowerCase();
+          if (query && !haystack.includes(query)) return false;
           if (st !== "all" && o.stage !== st) return false;
           const cp = coverageForOperation(o.id, deal);
           if (cov === "none" && cp.status !== "none") return false;
@@ -956,7 +1613,8 @@
           list.innerHTML = `
             <div class="empty-note">
               <p class="empty-note-title">Операции не найдены</p>
-              <p class="empty-note-desc">Попробуйте сбросить поиск, этап или покрытие. Текущая цель кредита: ${getCreditGoal(deal).shortLabel}.</p>
+              <p class="empty-note-desc">Можно сбросить поиск, этап или покрытие. Текущая цель кредита: ${getCreditGoal(deal).shortLabel}.</p>
+              <button type="button" class="primary" id="emptyAddCustomGroupBtn">+ Добавить фактическую группу</button>
             </div>
           `;
           return;
@@ -966,20 +1624,29 @@
           const cp = coverageForOperation(op.id, deal);
           const cpCls = cp.status==='complete'?'complete':cp.status==='partial'?'partial':'empty';
           const cpTxt = cp.status==='complete'?'Полн.':cp.status==='partial'?'Част.':'Нет';
+          const isCustom = op.sourceType === "custom_group";
           return `
             <div class="operation-item ${op.id === state.selectedOperationId ? 'active' : ''}">
               <div class="operation-card-top">
                 <div class="meta-line">
-                  <span class="badge">${op.id}</span>
-                  <span class="badge">${op.stage}</span>
-                  <span class="badge">${operationGoalBadgeText(op, deal)}</span>
+                  <span class="badge">${escapeHtml(op.id)}</span>
+                  <span class="badge">${escapeHtml(op.stage)}</span>
+                  <span class="badge">${escapeHtml(operationGoalBadgeText(op, deal))}</span>
+                  ${isCustom ? '<span class="badge">Добавлено проверяющим</span>' : ''}
                 </div>
                 <span class="status-pill ${cpCls}">${cpTxt}</span>
               </div>
-              <div class="operation-title">${op.title}</div>
+              <div class="operation-title">${escapeHtml(op.title)}</div>
               <div class="operation-card-bottom">
-                <span>Строк: ${op.rowsCount}</span>
-                <button type="button" class="primary select-op-btn" data-id="${op.id}">Выбрать</button>
+                <span>Строк: ${getOperationRowsCount(op.id)}</span>
+                ${isCustom && op.customMeta?.comment ? `<span class="custom-comment">Комментарий: ${escapeHtml(op.customMeta.comment)}</span>` : ''}
+                <button type="button" class="primary select-op-btn" data-id="${escapeAttr(op.id)}">Выбрать</button>
+                ${isCustom ? `
+                  <div class="operation-card-actions">
+                    <button type="button" class="ghost edit-custom-group-btn" data-id="${escapeAttr(op.id)}">Редактировать</button>
+                    <button type="button" class="ghost delete-custom-group-btn" data-id="${escapeAttr(op.id)}">Удалить</button>
+                  </div>
+                ` : ''}
               </div>
             </div>
           `;
@@ -1010,7 +1677,7 @@
       function renderProgressTab() {
         const deal = currentDealKey();
         const goal = getCreditGoal(deal);
-        const scopeOperations = operations.filter(o => operationMatchesDeal(o, deal));
+        const scopeOperations = getAllOperations().filter(o => operationMatchesDeal(o, deal));
         const coverList = scopeOperations.map(o => ({ op: o, p: coverageForOperation(o.id, deal) }));
         const scopeMeasurements = state.measurements.filter(m => deal === "all" || m.creditGoalKey === deal);
         const any = coverList.filter(c => c.p.status !== "none").length;
@@ -1019,16 +1686,18 @@
         $("#coverageAny").textContent = any;
         $("#coverageFull").textContent = full;
         $("#measurementsTotal").textContent = scopeMeasurements.length;
+        $("#customGroupsTotal").textContent = (state.customGroups || []).filter(g => !g.isArchived).length;
+        $("#customItemsTotal").textContent = (state.customItems || []).filter(i => !i.isArchived).length;
         $("#progressScopeNote").textContent = `Покрытие считается для выбранной цели кредита: ${goal.label}`;
 
         const pList = coverList.filter(c => c.p.status !== "complete").slice(0, 50); 
         $("#progressIssuesList").innerHTML = pList.length ? pList.map(c => `
           <div class="problem-item">
             <div>
-              <div class="problem-title">${c.op.id} <span style="font-weight:normal;color:var(--muted)">${c.p.status==='none'?'Не измерено':'Частично'}</span></div>
-              <div class="problem-desc">${operationGoalBadgeText(c.op, deal)} · Эксп: ${c.p.expert?'✓':'-'} · Срд: ${c.p.middle?'✓':'-'} · Нов: ${c.p.novice?'✓':'-'}</div>
+              <div class="problem-title">${escapeHtml(c.op.id)} <span style="font-weight:normal;color:var(--muted)">${c.p.status==='none'?'Не измерено':'Частично'}</span></div>
+              <div class="problem-desc">${escapeHtml(operationGoalBadgeText(c.op, deal))} · ${c.op.sourceType === 'custom_group' ? 'Добавлена проверяющим · ' : ''}Эксп: ${c.p.expert?'✓':'-'} · Срд: ${c.p.middle?'✓':'-'} · Нов: ${c.p.novice?'✓':'-'}</div>
             </div>
-            <button class="ghost select-op-btn" data-id="${c.op.id}">Открыть</button>
+            <button class="ghost select-op-btn" data-id="${escapeAttr(c.op.id)}">Открыть</button>
           </div>
         `).join("") : `
           <div class="empty-note">
@@ -1043,6 +1712,158 @@
         $("#sessionDate").value = state.session.date || todayIso();
         $("#sessionSite").value = state.session.site || "";
         $("#sessionComment").value = state.session.comment || "";
+      }
+
+      function fillCustomGroupOptions() {
+        const blocks = [...new Set(getAllOperations(true).map(o => o.processBlock).filter(Boolean))].sort();
+        $("#processBlockOptions").innerHTML = blocks.map(block => `<option value="${escapeAttr(block)}">`).join("");
+        $("#customGroupSimilarBase").innerHTML = `<option value="">Нет</option>` + operations.map(op =>
+          `<option value="${escapeAttr(op.id)}">${escapeHtml(op.id)} · ${escapeHtml(op.title)}</option>`
+        ).join("");
+      }
+
+      function setGoalChecks(containerSelector, goals) {
+        const selected = new Set(sanitizeGoals(goals));
+        document.querySelectorAll(`${containerSelector} input[type="checkbox"]`).forEach(input => {
+          input.checked = selected.has(input.value);
+        });
+      }
+
+      function readGoalChecks(containerSelector) {
+        return Array.from(document.querySelectorAll(`${containerSelector} input[type="checkbox"]:checked`)).map(input => input.value);
+      }
+
+      function splitLines(value) {
+        return String(value || "").split(/\n+/).map(line => line.trim()).filter(Boolean);
+      }
+
+      function openCustomGroupModal(groupId = "") {
+        fillCustomGroupOptions();
+        const group = groupId ? state.customGroups.find(g => g.id === groupId) : null;
+        $("#customGroupId").value = group?.id || "";
+        $("#customGroupModalTitle").textContent = group ? "Редактировать фактическую группу" : "Добавить фактическую группу";
+        $("#customGroupSaveBtn").textContent = group ? "Сохранить изменения" : "Создать группу";
+        $("#customGroupTitle").value = group?.title || "";
+        $("#customGroupStage").value = group?.stage || "ПИ";
+        $("#customGroupProcessBlock").value = group?.processBlock || "";
+        $("#customGroupRole").value = group?.role || "Персональные менеджеры";
+        setGoalChecks("#customGroupGoals", group?.creditGoals || (currentDealKey() === "all" ? CUSTOM_GOAL_KEYS : [currentDealKey()]));
+        $("#customGroupReason").value = group?.customMeta?.reason || "нет в справочнике";
+        $("#customGroupDescription").value = group?.customMeta?.description || "";
+        $("#customGroupComment").value = group?.customMeta?.comment || "";
+        $("#customGroupSimilarBase").value = group?.customMeta?.similarBaseOperationId || "";
+        $("#customGroupRegularity").value = group?.customMeta?.regularity || "unknown";
+        $("#customGroupObservationSource").value = group?.customMeta?.observationSource || "measurement";
+        $("#customGroupInitialItems").value = "";
+        $("#customGroupModal").classList.add("active");
+      }
+
+      function closeCustomGroupModal() {
+        $("#customGroupModal").classList.remove("active");
+      }
+
+      function readCustomGroupForm() {
+        return {
+          title: $("#customGroupTitle").value.trim(),
+          stage: $("#customGroupStage").value,
+          processBlock: $("#customGroupProcessBlock").value.trim(),
+          role: $("#customGroupRole").value.trim(),
+          creditGoals: readGoalChecks("#customGroupGoals"),
+          reason: $("#customGroupReason").value,
+          description: $("#customGroupDescription").value.trim(),
+          comment: $("#customGroupComment").value.trim(),
+          similarBaseOperationId: $("#customGroupSimilarBase").value,
+          regularity: $("#customGroupRegularity").value,
+          observationSource: $("#customGroupObservationSource").value,
+          initialItems: splitLines($("#customGroupInitialItems").value)
+        };
+      }
+
+      function validateCustomGroupPayload(payload) {
+        if (!payload.title) return "Укажите название группы";
+        if (!payload.stage) return "Выберите этап";
+        if (!payload.processBlock) return "Укажите блок процесса";
+        if (!payload.role) return "Укажите роль";
+        if (!payload.creditGoals.length) return "Выберите хотя бы одну цель кредита";
+        if (!payload.description) return "Заполните подробное описание";
+        if (!payload.comment) return "Заполните комментарий проверяющего";
+        return "";
+      }
+
+      function openCustomItemModal(itemId = "") {
+        const op = activeOp();
+        if (!op) return showNotice("Сначала выберите группу", "warning");
+        const item = itemId ? state.customItems.find(x => x.id === itemId) : null;
+        if (!item && timer.status === "running") return showNotice("Добавлять операцию можно до старта или на паузе", "warning");
+
+        const parent = item ? operationById(item.parentOperationId) : op;
+        $("#customItemId").value = item?.id || "";
+        $("#customItemModalTitle").textContent = item ? "Редактировать операцию в группе" : "Добавить операцию в группу";
+        $("#customItemSaveBtn").textContent = item ? "Сохранить изменения" : "Добавить операцию";
+        $("#customItemParentLabel").value = `${parent.id} · ${parent.title}`;
+        $("#customItemText").value = item?.text || "";
+        const defaultGoals = item?.creditGoals || (currentDealKey() === "all" ? parent.creditGoals : [currentDealKey()]);
+        setGoalChecks("#customItemGoals", defaultGoals);
+        $("#customItemDealTag").value = item?.dealTag || goalTagFromGoals(sanitizeGoals(defaultGoals));
+        $("#customItemReason").value = item?.reason || "нет в составе группы";
+        $("#customItemComment").value = item?.comment || "";
+        $("#customItemRegularity").value = item?.regularity || "unknown";
+        $("#customItemObservationSource").value = item?.observationSource || "measurement";
+        $("#customItemSimilarBase").innerHTML = `<option value="">Нет</option>` + getOperationItems(parent.id)
+          .filter(baseItem => baseItem.sourceType !== "custom_item" || baseItem.id === item?.id)
+          .map(baseItem => `<option value="${escapeAttr(baseItem.id)}">${escapeHtml(baseItem.text)}</option>`)
+          .join("");
+        $("#customItemSimilarBase").value = item?.similarBaseItemId || "";
+        $("#customItemModal").dataset.parentOperationId = parent.id;
+        $("#customItemModal").classList.add("active");
+      }
+
+      function closeCustomItemModal() {
+        $("#customItemModal").classList.remove("active");
+      }
+
+      function readCustomItemForm() {
+        return {
+          parentOperationId: $("#customItemModal").dataset.parentOperationId || activeOp()?.id || "",
+          text: $("#customItemText").value.trim(),
+          creditGoals: readGoalChecks("#customItemGoals"),
+          dealTag: $("#customItemDealTag").value.trim(),
+          reason: $("#customItemReason").value,
+          comment: $("#customItemComment").value.trim(),
+          regularity: $("#customItemRegularity").value,
+          observationSource: $("#customItemObservationSource").value,
+          similarBaseItemId: $("#customItemSimilarBase").value
+        };
+      }
+
+      function validateCustomItemPayload(payload) {
+        if (!payload.parentOperationId) return "Не выбрана родительская группа";
+        if (!payload.text) return "Укажите текст операции";
+        if (!payload.creditGoals.length) return "Выберите хотя бы одну цель кредита";
+        if (!payload.comment) return "Заполните комментарий проверяющего";
+        return "";
+      }
+
+      function getCheckedItemsDetailed(operationId = activeOp()?.id) {
+        const items = getOperationItems(operationId, true);
+        return Array.from(document.querySelectorAll('.checklist-item-cb:checked')).map(input => {
+          const item = items.find(x => x.id === input.dataset.itemId) || {
+            id: input.dataset.itemId || input.value,
+            text: input.value,
+            dealTag: "",
+            sourceType: "unknown_item",
+            parentOperationId: operationId,
+            comment: ""
+          };
+          return {
+            id: item.id,
+            text: item.text,
+            dealTag: item.dealTag || "",
+            sourceType: item.sourceType,
+            parentOperationId: item.parentOperationId,
+            customComment: item.comment || ""
+          };
+        });
       }
 
       function showNotice(msg, type = "warning") {
@@ -1080,7 +1901,7 @@
 
           const selected = activeOp();
           if (selected && !operationMatchesDeal(selected, nextDeal)) {
-            const first = operations.find(o => operationMatchesDeal(o, nextDeal));
+            const first = getAllOperations().find(o => operationMatchesDeal(o, nextDeal));
             state.selectedOperationId = first ? first.id : "";
           }
 
@@ -1128,6 +1949,29 @@
         
         const chipSt = e.target.closest("#chipsStatus .chip");
         if (chipSt) { state.filters.status = chipSt.dataset.val; saveState(); renderOperationsTab(); }
+
+        const chipSource = e.target.closest("#chipsSource .chip");
+        if (chipSource) { state.filters.source = chipSource.dataset.val; saveState(); renderOperationsTab(); }
+
+        if (e.target.closest("#showAddCustomGroupBtn") || e.target.closest("#emptyAddCustomGroupBtn")) openCustomGroupModal();
+
+        const editGroup = e.target.closest(".edit-custom-group-btn");
+        if (editGroup) openCustomGroupModal(editGroup.dataset.id);
+
+        const deleteGroup = e.target.closest(".delete-custom-group-btn");
+        if (deleteGroup && confirm("Удалить пользовательскую группу? Если по ней есть замеры, она будет архивирована.")) {
+          archiveCustomGroup(deleteGroup.dataset.id);
+        }
+
+        if (e.target.closest("#showAddCustomItemBtn")) openCustomItemModal();
+
+        const editItem = e.target.closest(".edit-custom-item-btn");
+        if (editItem) openCustomItemModal(editItem.dataset.id);
+
+        const deleteItem = e.target.closest(".delete-custom-item-btn");
+        if (deleteItem && confirm("Удалить пользовательскую операцию? Если она использовалась в замере, она будет архивирована.")) {
+          archiveCustomItem(deleteItem.dataset.id);
+        }
       });
 
       $("#showAddEmployeeBtn").onclick = () => $("#employeeForm").classList.remove("hidden");
@@ -1149,6 +1993,46 @@
       ["Auditor", "Date", "Site", "Comment"].forEach(f => {
         $(`#session${f}`).oninput = (e) => { state.session[f.toLowerCase()] = e.target.value; saveState(); }
       });
+
+      $("#customGroupCancelBtn").onclick = closeCustomGroupModal;
+      $("#customGroupForm").onsubmit = (e) => {
+        e.preventDefault();
+        const groupId = $("#customGroupId").value;
+        const payload = readCustomGroupForm();
+        const error = validateCustomGroupPayload(payload);
+        if (error) return showNotice(error, "warning");
+
+        if (!groupId) {
+          const similar = findSimilarOperations(payload.title);
+          if (similar.length && !confirm(`Возможно, похожая группа уже есть: ${similar[0].id} ${similar[0].title}. Все равно создать новую группу?`)) return;
+        }
+
+        const group = groupId ? updateCustomGroup(groupId, payload) : createCustomGroup(payload);
+        state.selectedOperationId = group.id;
+        state.filters.source = "all";
+        saveState();
+        closeCustomGroupModal();
+        renderAll();
+        setMobileView("measure");
+        showNotice(groupId ? "Группа обновлена" : "Фактическая группа добавлена", "success");
+      };
+
+      $("#customItemCancelBtn").onclick = closeCustomItemModal;
+      $("#customItemForm").onsubmit = (e) => {
+        e.preventDefault();
+        const itemId = $("#customItemId").value;
+        const payload = readCustomItemForm();
+        const error = validateCustomItemPayload(payload);
+        if (error) return showNotice(error, "warning");
+
+        itemId ? updateCustomItem(itemId, payload) : createCustomItem(payload, { skipSave: true });
+        saveState();
+        closeCustomItemModal();
+        const cl = $("#operationChecklist");
+        cl.dataset.itemSignature = "";
+        renderAll();
+        showNotice(itemId ? "Операция обновлена" : "Операция добавлена в группу", "success");
+      };
 
       // TIMER
       $("#timerStartBtn").onclick = () => {
@@ -1188,16 +2072,30 @@
         const goal = getCreditGoal(deal);
         const goalLabel = deal === "all" ? "Все цели / общий режим" : goal.label;
         const sec = timer.elapsedBeforePauseSec;
-        const checked = Array.from(document.querySelectorAll('.checklist-item-cb:checked')).map(c => c.value);
+        const checkedDetailed = getCheckedItemsDetailed(op.id);
+        const customChecked = checkedDetailed.filter(item => item.sourceType === "custom_item");
+        const customCheckedList = customChecked.length ? `
+          <div class="mt-4">
+            <div class="muted-bold">Отмечены добавленные операции:</div>
+            <ul style="margin: 6px 0 0; padding-left: 18px; color: var(--text-soft); font-size: 13px;">
+              ${customChecked.map(item => `<li>${escapeHtml(item.text)}</li>`).join("")}
+            </ul>
+          </div>
+        ` : "";
 
         $("#confirmData").innerHTML = `
-          <div class="operation-title" style="margin-top:0;">${op.id} · ${op.title}</div>
+          <div class="operation-title" style="margin-top:0;">${escapeHtml(op.id)} · ${escapeHtml(op.title)}</div>
           <div class="meta-line-text mb-3">Сотрудник: ${state.employees.find(e=>e.id===timer.employeeId)?.name || ''}</div>
-          <div class="meta-line-text mb-3">Цель кредита: ${goalLabel}</div>
+          <div class="meta-line-text mb-3">Цель кредита: ${escapeHtml(goalLabel)}</div>
+          <div class="meta-line-text mb-3">Источник группы: ${SOURCE_LABELS[op.sourceType] || "Базовая"}</div>
           <div class="meta-line mb-2">
              <span class="badge">Факт: ${formatDuration(sec)}</span>
           </div>
-          <div class="meta-line"><span class="badge">Отмечено строк: ${checked.length} из ${op.rowsCount}</span></div>
+          <div class="meta-line">
+            <span class="badge">Отмечено строк: ${checkedDetailed.length} из ${getOperationRowsCount(op.id)}</span>
+            <span class="badge">Пользовательских отмечено: ${customChecked.length}</span>
+          </div>
+          ${customCheckedList}
         `;
         $("#measurementComment").value = "";
         $("#confirmModal").classList.add("active");
@@ -1211,17 +2109,20 @@
         const currentGoal = getCreditGoal(currentDeal);
         const sec = timer.elapsedBeforePauseSec;
         const min = Number((sec/60).toFixed(2));
-        const dev = Number((min - op.plannedMinutes).toFixed(2));
-        const checked = Array.from(document.querySelectorAll('.checklist-item-cb:checked')).map(c => c.value);
+        const dev = op.plannedMinutes == null ? null : Number((min - op.plannedMinutes).toFixed(2));
+        const checkedDetailed = getCheckedItemsDetailed(op.id);
+        const checked = checkedDetailed.map(item => item.text);
 
         state.measurements.push({
           id: `measurement_${Date.now()}`,
           operationId: op.id, operationTitle: op.title, stage: op.stage, processBlock: op.processBlock, dealType: op.dealType,
           creditGoalKey: currentDeal, creditGoalLabel: currentGoal.label, operationCreditGoals: op.creditGoals || [], operationGoalRowsCount: op.goalRowsCount || null,
+          operationSourceType: op.sourceType || "base", isCustomGroup: op.sourceType === "custom_group", customGroupId: op.sourceType === "custom_group" ? op.id : "",
+          rowsCount: getOperationRowsCount(op.id),
           plannedMinutes: op.plannedMinutes,
           employeeId: emp.id, employeeName: emp.name, employeeRole: emp.role, employeeProfile: emp.profile,
           startedAt: timer.startedAt, endedAt: isoNow(), durationSec: sec, durationMin: min, deviationMin: dev, deviationPercent: null,
-          checkedItems: checked, comment: $("#measurementComment").value.trim(), createdAt: isoNow()
+          checkedItems: checked, checkedItemsDetailed: checkedDetailed, comment: $("#measurementComment").value.trim(), createdAt: isoNow()
         });
         
         timer = defaultTimer();
@@ -1232,8 +2133,6 @@
         renderAll();
         showNotice("Замер успешно сохранен", "success");
       };
-
-      function operationById(id) { return operations.find(o => o.id === id); }
 
       // Export / Import
       function downloadFile(fn, txt) {
@@ -1257,6 +2156,15 @@
           "stage",
           "process_block",
           "deal_type",
+          "operation_source_type",
+          "is_custom_group",
+          "custom_group_id",
+          "custom_group_reason",
+          "custom_group_comment",
+          "custom_group_description",
+          "custom_group_created_at",
+          "custom_group_created_by",
+          "similar_base_operation_id",
           "credit_goal_key",
           "credit_goal_label",
           "operation_credit_goals",
@@ -1276,6 +2184,12 @@
           "deviation_min",
           "deviation_percent",
           "checked_items",
+          "checked_items_detailed_json",
+          "custom_items_count",
+          "custom_item_ids",
+          "custom_item_texts",
+          "custom_item_reasons",
+          "custom_item_comments",
           "comment"
         ].join(";") + "\\n";
         const rows = state.measurements.map(m => {
@@ -1284,10 +2198,25 @@
           const operationCreditGoals = Array.isArray(m.operationCreditGoals)
             ? m.operationCreditGoals
             : (op && Array.isArray(op.creditGoals) ? op.creditGoals : []);
+          const operationSourceType = m.operationSourceType || op?.sourceType || "base";
+          const isCustomGroup = m.isCustomGroup || operationSourceType === "custom_group";
+          const customMeta = isCustomGroup ? (op?.customMeta || {}) : {};
+          const detailed = Array.isArray(m.checkedItemsDetailed) ? m.checkedItemsDetailed : [];
+          const customDetailed = detailed.filter(item => item.sourceType === "custom_item");
+          const customFullItems = customDetailed.map(item => (state.customItems || []).find(x => x.id === item.id) || item);
 
           return [
             state.session.date, state.session.auditor, state.session.site,
             m.operationId, m.operationTitle, m.stage, m.processBlock, m.dealType,
+            operationSourceType,
+            isCustomGroup ? "1" : "0",
+            isCustomGroup ? m.operationId : "",
+            customMeta.reason || "",
+            customMeta.comment || "",
+            customMeta.description || "",
+            customMeta.createdAt || op?.createdAt || "",
+            customMeta.createdByAuditor || op?.createdByAuditor || "",
+            customMeta.similarBaseOperationId || "",
             m.creditGoalKey || "legacy_unknown",
             m.creditGoalLabel || "Не указано / старый замер",
             operationCreditGoals.join(","),
@@ -1298,14 +2227,21 @@
             m.plannedMinutes,
             m.employeeId, m.employeeName, m.employeeRole, m.employeeProfile,
             m.startedAt, m.endedAt, m.durationSec, m.durationMin, m.deviationMin, m.deviationPercent ?? "",
-            (m.checkedItems||[]).join(","), m.comment||""
+            (m.checkedItems||[]).join(","),
+            JSON.stringify(detailed),
+            customDetailed.length,
+            customDetailed.map(item => item.id).join(","),
+            customDetailed.map(item => item.text).join(" | "),
+            customFullItems.map(item => item.reason || "").join(" | "),
+            customFullItems.map(item => item.customComment || item.comment || "").join(" | "),
+            m.comment||""
           ].map(csvCell).join(";");
         }).join("\\n");
         downloadFile("export.csv", "\\ufeff" + header + rows);
       };
       
       $("#exportSessionBtn").onclick = () => {
-         const payload = { version: "1.1-credit-goals", state, timer, exportedAt: isoNow() };
+         const payload = { version: "1.2-custom-groups", state, timer, exportedAt: isoNow() };
          downloadFile("session.json", JSON.stringify(payload, null, 2));
       };
 
