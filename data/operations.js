@@ -1,3 +1,30 @@
+window.CREDIT_GOALS = {
+  all: {
+    key: "all",
+    label: "Все цели",
+    shortLabel: "Все",
+    description: "Показать все 48 операций без фильтра по цели кредита"
+  },
+  izhs_jd: {
+    key: "izhs_jd",
+    label: "ИЖС + Жилой дом",
+    shortLabel: "ИЖС+ЖД",
+    description: "ИЖС объединен с жилым домом; правило отбора: ИЖС OR Жилой дом"
+  },
+  gzh: {
+    key: "gzh",
+    label: "ГЖ",
+    shortLabel: "ГЖ",
+    description: "Готовое жилье / вторичка; правило отбора: ГЖ = 1"
+  },
+  ddu: {
+    key: "ddu",
+    label: "ДДУ",
+    shortLabel: "ДДУ",
+    description: "Новостройка / договор долевого участия; правило отбора: ДДУ = 1"
+  }
+};
+
 window.OPERATIONS = [
   {
     "id": "DI-001",
@@ -1508,3 +1535,88 @@ window.OPERATIONS = [
     ]
   }
 ];
+
+(function applyCreditGoalMetadata() {
+  const goalRowsByOperation = {
+    "DI-001": { izhsJd: 3, gzh: 3, ddu: 3, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-002": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-003": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-004": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-005": { izhsJd: 2, gzh: 2, ddu: 2, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-006": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-007": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-008": { izhsJd: 6, gzh: 6, ddu: 6, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-009": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-010": { izhsJd: 4, gzh: 4, ddu: 4, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-011": { izhsJd: 0, gzh: 0, ddu: 5, coverageGroup: "ДДУ" },
+    "DI-012": { izhsJd: 0, gzh: 5, ddu: 0, coverageGroup: "ГЖ" },
+    "DI-013": { izhsJd: 7, gzh: 0, ddu: 0, coverageGroup: "ИЖС_ЖД" },
+    "DI-014": { izhsJd: 9, gzh: 0, ddu: 0, coverageGroup: "ИЖС_ЖД" },
+    "DI-015": { izhsJd: 2, gzh: 2, ddu: 2, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-016": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-017": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-018": { izhsJd: 7, gzh: 7, ddu: 6, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-019": { izhsJd: 8, gzh: 6, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-020": { izhsJd: 30, gzh: 23, ddu: 21, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-021": { izhsJd: 7, gzh: 7, ddu: 7, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-022": { izhsJd: 4, gzh: 4, ddu: 4, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-023": { izhsJd: 4, gzh: 4, ddu: 4, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-024": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-025": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-026": { izhsJd: 2, gzh: 2, ddu: 2, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-027": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-028": { izhsJd: 5, gzh: 5, ddu: 5, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-029": { izhsJd: 2, gzh: 2, ddu: 2, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-030": { izhsJd: 6, gzh: 6, ddu: 6, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-031": { izhsJd: 9, gzh: 9, ddu: 10, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-032": { izhsJd: 3, gzh: 3, ddu: 3, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-033": { izhsJd: 12, gzh: 12, ddu: 12, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-034": { izhsJd: 5, gzh: 6, ddu: 5, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-035": { izhsJd: 13, gzh: 13, ddu: 14, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-036": { izhsJd: 2, gzh: 2, ddu: 2, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-037": { izhsJd: 7, gzh: 7, ddu: 7, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-038": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ" },
+    "DI-039": { izhsJd: 8, gzh: 8, ddu: 8, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-040": { izhsJd: 4, gzh: 4, ddu: 4, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-041": { izhsJd: 3, gzh: 3, ddu: 3, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-042": { izhsJd: 0, gzh: 0, ddu: 1, coverageGroup: "ДДУ" },
+    "DI-043": { izhsJd: 0, gzh: 0, ddu: 1, coverageGroup: "ДДУ" },
+    "DI-044": { izhsJd: 0, gzh: 0, ddu: 1, coverageGroup: "ДДУ" },
+    "DI-045": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-046": { izhsJd: 0, gzh: 0, ddu: 1, coverageGroup: "ДДУ" },
+    "DI-047": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" },
+    "DI-048": { izhsJd: 1, gzh: 1, ddu: 1, coverageGroup: "ИЖС_ЖД; ГЖ; ДДУ; РЕФ" }
+  };
+
+  const labelsByGoal = {
+    izhs_jd: "ИЖС+ЖД",
+    gzh: "ГЖ",
+    ddu: "ДДУ"
+  };
+
+  window.OPERATIONS.forEach(operation => {
+    const meta = goalRowsByOperation[operation.id] || { izhsJd: 0, gzh: 0, ddu: 0, coverageGroup: "" };
+    const creditGoals = [];
+    if (meta.izhsJd > 0) creditGoals.push("izhs_jd");
+    if (meta.gzh > 0) creditGoals.push("gzh");
+    if (meta.ddu > 0) creditGoals.push("ddu");
+
+    operation.creditGoals = creditGoals;
+    operation.goalFlags = {
+      izhsJd: meta.izhsJd > 0,
+      gzh: meta.gzh > 0,
+      ddu: meta.ddu > 0,
+      ref: meta.coverageGroup.includes("РЕФ")
+    };
+    operation.goalRowsCount = {
+      izhsJd: meta.izhsJd,
+      gzh: meta.gzh,
+      ddu: meta.ddu,
+      total: operation.rowsCount
+    };
+    operation.coverageGroup = meta.coverageGroup;
+    operation.goalComment = creditGoals.length === 3
+      ? "универсальная для 3 целей"
+      : `специализированная для ${creditGoals.map(goal => labelsByGoal[goal]).join(" / ")}`;
+  });
+})();

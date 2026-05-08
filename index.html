@@ -311,6 +311,7 @@
     .alert { border-radius: var(--radius-md); padding: 14px 16px; font-weight: 700; margin-bottom: 16px; display: none; font-size: 14px; }
     .alert.warning { background: var(--warning-soft); border: 1px solid var(--warning-border); color: var(--warning); }
     .alert.success { background: var(--success-soft); border: 1px solid var(--success-border); color: var(--success); }
+    .alert.danger { background: var(--danger-soft); border: 1px solid var(--danger-border); color: var(--danger); }
 
     /* Modal / Confirm screen */
     .modal-overlay {
@@ -429,6 +430,14 @@
           </div>
           <div class="panel-body">
             <input type="search" id="filterSearch" class="search-input" placeholder="Поиск по ID / названию...">
+            
+            <div class="muted-bold">Цель кредита:</div>
+            <div class="chips-group" id="chipsDeal">
+              <div class="chip active" data-val="all">Все цели</div>
+              <div class="chip" data-val="izhs_jd">ИЖС+ЖД</div>
+              <div class="chip" data-val="gzh">ГЖ</div>
+              <div class="chip" data-val="ddu">ДДУ</div>
+            </div>
             
             <div class="muted-bold">Этап:</div>
             <div class="chips-group" id="chipsStage">
@@ -550,6 +559,7 @@
               <div class="counter"><strong id="coverageFull">0</strong><span>Закрыто</span></div>
               <div class="counter"><strong id="measurementsTotal">0</strong><span>Замеров</span></div>
             </div>
+            <p class="meta-line-text mt-4" id="progressScopeNote"></p>
             
             <h3 class="mt-4 mb-2">Детализация покрытия</h3>
             <div class="problem-list" id="progressIssuesList"></div>
@@ -626,6 +636,12 @@
 
       const $ = (selector) => document.querySelector(selector);
       const operations = Array.isArray(window.OPERATIONS) ? window.OPERATIONS : [];
+      const CREDIT_GOALS = window.CREDIT_GOALS || {
+        all: { key: "all", label: "Все цели", shortLabel: "Все" },
+        izhs_jd: { key: "izhs_jd", label: "ИЖС + Жилой дом", shortLabel: "ИЖС+ЖД" },
+        gzh: { key: "gzh", label: "ГЖ", shortLabel: "ГЖ" },
+        ddu: { key: "ddu", label: "ДДУ", shortLabel: "ДДУ" }
+      };
 
       const todayIso = () => new Date().toISOString().slice(0, 10);
       const isoNow = () => new Date().toISOString();
@@ -659,16 +675,7 @@
       function loadState() {
         try {
           const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-          const base = defaultState();
-          if (!saved || typeof saved !== "object") return base;
-          return {
-            ...base, ...saved,
-            ui: { ...base.ui, ...(saved.ui || {}) },
-            session: { ...base.session, ...(saved.session || {}) },
-            filters: { ...base.filters, ...(saved.filters || {}) },
-            employees: Array.isArray(saved.employees) ? saved.employees : [],
-            measurements: Array.isArray(saved.measurements) ? saved.measurements : []
-          };
+          return hydrateState(saved);
         } catch (e) { return defaultState(); }
       }
 
@@ -693,8 +700,87 @@
         return `${String(Math.floor(t / 3600)).padStart(2,"0")}:${String(Math.floor((t % 3600) / 60)).padStart(2,"0")}:${String(t % 60).padStart(2,"0")}`;
       }
 
-      function coverageForOperation(id) {
-        const m = state.measurements.filter(x => x.operationId === id);
+      function hydrateState(saved) {
+        const base = defaultState();
+        if (!saved || typeof saved !== "object") return base;
+
+        const next = {
+          ...base, ...saved,
+          ui: { ...base.ui, ...(saved.ui || {}) },
+          session: { ...base.session, ...(saved.session || {}) },
+          filters: { ...base.filters, ...(saved.filters || {}) },
+          employees: Array.isArray(saved.employees) ? saved.employees : [],
+          measurements: Array.isArray(saved.measurements) ? saved.measurements.map(migrateMeasurement) : []
+        };
+
+        if (!CREDIT_GOALS[next.filters.deal]) next.filters.deal = "all";
+        return next;
+      }
+
+      function migrateMeasurement(measurement) {
+        if (!measurement || typeof measurement !== "object") return measurement;
+        if (measurement.creditGoalKey) return measurement;
+        return {
+          ...measurement,
+          creditGoalKey: "legacy_unknown",
+          creditGoalLabel: "Не указано / старый замер"
+        };
+      }
+
+      function getCreditGoal(key) {
+        return CREDIT_GOALS[key] || CREDIT_GOALS.all;
+      }
+
+      function currentDealKey() {
+        return state.filters.deal || "all";
+      }
+
+      function operationMatchesDeal(operation, dealKey) {
+        if (!operation) return false;
+        if (!dealKey || dealKey === "all") return true;
+        return Array.isArray(operation.creditGoals) && operation.creditGoals.includes(dealKey);
+      }
+
+      function goalRowsForOperation(operation, dealKey) {
+        const rows = operation.goalRowsCount || {};
+        if (dealKey === "izhs_jd") return rows.izhsJd || 0;
+        if (dealKey === "gzh") return rows.gzh || 0;
+        if (dealKey === "ddu") return rows.ddu || 0;
+        return rows.total || operation.rowsCount || 0;
+      }
+
+      function operationGoalBadgeText(operation, dealKey = currentDealKey()) {
+        if (!dealKey || dealKey === "all") return operation.coverageGroup || operation.dealType || "Все цели";
+        const goal = getCreditGoal(dealKey);
+        return `${goal.shortLabel} · ${goalRowsForOperation(operation, dealKey)} из ${operation.rowsCount} строк`;
+      }
+
+      function ensureSelectedOperationInDeal() {
+        const deal = currentDealKey();
+        const selected = activeOp();
+        if (selected && operationMatchesDeal(selected, deal)) return;
+
+        if (timer.status !== "idle") {
+          const timerOperation = operationById(timer.operationId);
+          if (timerOperation) {
+            state.selectedOperationId = timerOperation.id;
+            if (!operationMatchesDeal(timerOperation, deal)) state.filters.deal = "all";
+            saveState();
+          }
+          return;
+        }
+
+        const first = operations.find(o => operationMatchesDeal(o, deal));
+        state.selectedOperationId = first ? first.id : "";
+        saveState();
+      }
+
+      function coverageForOperation(id, dealKey = currentDealKey()) {
+        const m = state.measurements.filter(x => {
+          if (x.operationId !== id) return false;
+          if (!dealKey || dealKey === "all") return true;
+          return x.creditGoalKey === dealKey;
+        });
         const p = {
           expert: m.some(x => x.employeeProfile === "expert"),
           middle: m.some(x => x.employeeProfile === "middle"),
@@ -729,6 +815,7 @@
          RENDER
       ----------------------------------------*/
       function renderAll() {
+        ensureSelectedOperationInDeal();
         renderMeasureTab();
         renderOperationsTab();
         renderEmployeesTab();
@@ -745,7 +832,8 @@
 
       function renderHeader() {
         const op = activeOp();
-        $("#mobileHeaderStatus").innerHTML = `<span>${op ? op.id : "Нет"} · <span id="headerTimerText">${formatDuration(getElapsedSec())}</span></span>`;
+        const goal = getCreditGoal(currentDealKey());
+        $("#mobileHeaderStatus").innerHTML = `<span>${op ? op.id : "Нет"} · ${goal.shortLabel} · <span id="headerTimerText">${formatDuration(getElapsedSec())}</span></span>`;
       }
 
       function renderMeasureTab() {
@@ -771,18 +859,21 @@
           </div>
         `;
 
-        const p = coverageForOperation(op.id);
+        const deal = currentDealKey();
+        const goal = getCreditGoal(deal);
+        const currentGoalText = deal === "all" ? "Все цели / общий режим" : goal.label;
+        const p = coverageForOperation(op.id, deal);
         const coverBadge = p.status === 'complete' ? '<span class="status-pill complete">Полностью</span>' : p.status === 'partial' ? '<span class="status-pill partial">Частично</span>' : '<span class="status-pill empty">Нет замера</span>';
 
         $("#measureCurrentOperation").innerHTML = `
           <div class="operation-card-top mb-2">
-            <div class="meta-line"><span class="badge">${op.id}</span><span class="badge">${op.stage}</span></div>
+            <div class="meta-line"><span class="badge">${op.id}</span><span class="badge">${op.stage}</span>${coverBadge}</div>
             <button type="button" class="ghost switch-view" data-target="operations">Сменить</button>
           </div>
           <h3>${op.title}</h3>
           <div class="meta-line mt-4">
-            <span class="meta-line-text">План: <strong class="text">${op.plannedMinutes} мин</strong></span>
             <span class="meta-line-text">Сделка: <strong class="text">${op.dealType}</strong></span>
+            <span class="meta-line-text">Цель кредита: <strong class="text">${currentGoalText}</strong></span>
           </div>
         `;
 
@@ -838,18 +929,21 @@
       }
 
       function renderOperationsTab() {
+        document.querySelectorAll("#chipsDeal .chip").forEach(c => c.classList.toggle("active", c.dataset.val === currentDealKey()));
         document.querySelectorAll("#chipsStage .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.stage));
         document.querySelectorAll("#chipsStatus .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.status));
 
         const list = $("#operationsList");
         const query = state.filters.search.toLowerCase();
+        const deal = currentDealKey();
         const st = state.filters.stage;
         const cov = state.filters.status;
 
         const filtered = operations.filter(o => {
+          if (!operationMatchesDeal(o, deal)) return false;
           if (query && !`${o.id} ${o.title} ${o.processBlock}`.toLowerCase().includes(query)) return false;
           if (st !== "all" && o.stage !== st) return false;
-          const cp = coverageForOperation(o.id);
+          const cp = coverageForOperation(o.id, deal);
           if (cov === "none" && cp.status !== "none") return false;
           if (cov === "partial" && cp.status !== "partial") return false;
           if (cov === "complete" && cp.status !== "complete") return false;
@@ -858,8 +952,18 @@
 
         $("#operationCountBadge").textContent = filtered.length;
 
+        if (!filtered.length) {
+          list.innerHTML = `
+            <div class="empty-note">
+              <p class="empty-note-title">Операции не найдены</p>
+              <p class="empty-note-desc">Попробуйте сбросить поиск, этап или покрытие. Текущая цель кредита: ${getCreditGoal(deal).shortLabel}.</p>
+            </div>
+          `;
+          return;
+        }
+
         list.innerHTML = filtered.map(op => {
-          const cp = coverageForOperation(op.id);
+          const cp = coverageForOperation(op.id, deal);
           const cpCls = cp.status==='complete'?'complete':cp.status==='partial'?'partial':'empty';
           const cpTxt = cp.status==='complete'?'Полн.':cp.status==='partial'?'Част.':'Нет';
           return `
@@ -868,12 +972,12 @@
                 <div class="meta-line">
                   <span class="badge">${op.id}</span>
                   <span class="badge">${op.stage}</span>
+                  <span class="badge">${operationGoalBadgeText(op, deal)}</span>
                 </div>
                 <span class="status-pill ${cpCls}">${cpTxt}</span>
               </div>
               <div class="operation-title">${op.title}</div>
               <div class="operation-card-bottom">
-                <span>План: ${op.plannedMinutes} мин</span>
                 <span>Строк: ${op.rowsCount}</span>
                 <button type="button" class="primary select-op-btn" data-id="${op.id}">Выбрать</button>
               </div>
@@ -904,24 +1008,34 @@
       }
 
       function renderProgressTab() {
-        const coverList = operations.map(o => ({ op: o, p: coverageForOperation(o.id) }));
+        const deal = currentDealKey();
+        const goal = getCreditGoal(deal);
+        const scopeOperations = operations.filter(o => operationMatchesDeal(o, deal));
+        const coverList = scopeOperations.map(o => ({ op: o, p: coverageForOperation(o.id, deal) }));
+        const scopeMeasurements = state.measurements.filter(m => deal === "all" || m.creditGoalKey === deal);
         const any = coverList.filter(c => c.p.status !== "none").length;
         const full = coverList.filter(c => c.p.status === "complete").length;
 
         $("#coverageAny").textContent = any;
         $("#coverageFull").textContent = full;
-        $("#measurementsTotal").textContent = state.measurements.length;
+        $("#measurementsTotal").textContent = scopeMeasurements.length;
+        $("#progressScopeNote").textContent = `Покрытие считается для выбранной цели кредита: ${goal.label}`;
 
         const pList = coverList.filter(c => c.p.status !== "complete").slice(0, 50); 
-        $("#progressIssuesList").innerHTML = pList.map(c => `
+        $("#progressIssuesList").innerHTML = pList.length ? pList.map(c => `
           <div class="problem-item">
             <div>
               <div class="problem-title">${c.op.id} <span style="font-weight:normal;color:var(--muted)">${c.p.status==='none'?'Не измерено':'Частично'}</span></div>
-              <div class="problem-desc">Эксп: ${c.p.expert?'✓':'-'} · Срд: ${c.p.middle?'✓':'-'} · Нов: ${c.p.novice?'✓':'-'}</div>
+              <div class="problem-desc">${operationGoalBadgeText(c.op, deal)} · Эксп: ${c.p.expert?'✓':'-'} · Срд: ${c.p.middle?'✓':'-'} · Нов: ${c.p.novice?'✓':'-'}</div>
             </div>
             <button class="ghost select-op-btn" data-id="${c.op.id}">Открыть</button>
           </div>
-        `).join("");
+        `).join("") : `
+          <div class="empty-note">
+            <p class="empty-note-title">Покрытие закрыто</p>
+            <p class="empty-note-desc">Все операции в текущей цели кредита имеют полный набор замеров.</p>
+          </div>
+        `;
       }
 
       function renderMoreTab() {
@@ -948,6 +1062,31 @@
         if (e.target.closest(".nav-to-more")) setMobileView("more");
 
         if (e.target.closest(".checklist-item-cb")) updateChecklistCount();
+
+        const chipDeal = e.target.closest("#chipsDeal .chip");
+        if (chipDeal) {
+          const nextDeal = chipDeal.dataset.val;
+
+          if (timer.status !== "idle") {
+            const op = operationById(timer.operationId);
+            if (!operationMatchesDeal(op, nextDeal)) {
+              setMobileView("measure");
+              showNotice("Нельзя сменить цель кредита: текущий замер относится к другой выборке", "warning");
+              return;
+            }
+          }
+
+          state.filters.deal = nextDeal;
+
+          const selected = activeOp();
+          if (selected && !operationMatchesDeal(selected, nextDeal)) {
+            const first = operations.find(o => operationMatchesDeal(o, nextDeal));
+            state.selectedOperationId = first ? first.id : "";
+          }
+
+          saveState();
+          renderAll();
+        }
 
         const selOp = e.target.closest(".select-op-btn");
         if (selOp) {
@@ -1013,6 +1152,13 @@
 
       // TIMER
       $("#timerStartBtn").onclick = () => {
+        if (!activeOp() || !activeEmp()) {
+          showNotice("Для старта выберите операцию и сотрудника", "warning");
+          return;
+        }
+        if (currentDealKey() === "all") {
+          showNotice("Выбран общий режим «Все цели». Для продуктовой аналитики лучше выбрать ИЖС+ЖД, ГЖ или ДДУ.", "warning");
+        }
         timer = { operationId: activeOp().id, employeeId: activeEmp().id, startedAt: isoNow(), runningSince: isoNow(), elapsedBeforePauseSec: 0, status: "running" };
         saveTimer(); renderAll();
       };
@@ -1038,18 +1184,18 @@
         if(timer.status === "running") { timer.status = "paused"; timer.runningSince = ""; saveTimer(); renderAll(); }
         
         const op = operationById(timer.operationId);
+        const deal = currentDealKey();
+        const goal = getCreditGoal(deal);
+        const goalLabel = deal === "all" ? "Все цели / общий режим" : goal.label;
         const sec = timer.elapsedBeforePauseSec;
-        const min = Number((sec/60).toFixed(2));
-        const diff = Number((min - op.plannedMinutes).toFixed(2));
         const checked = Array.from(document.querySelectorAll('.checklist-item-cb:checked')).map(c => c.value);
 
         $("#confirmData").innerHTML = `
           <div class="operation-title" style="margin-top:0;">${op.id} · ${op.title}</div>
           <div class="meta-line-text mb-3">Сотрудник: ${state.employees.find(e=>e.id===timer.employeeId)?.name || ''}</div>
+          <div class="meta-line-text mb-3">Цель кредита: ${goalLabel}</div>
           <div class="meta-line mb-2">
              <span class="badge">Факт: ${formatDuration(sec)}</span>
-             <span class="badge">План: ${op.plannedMinutes} м</span>
-             <span class="badge">Откл: ${diff>0?'+':''}${diff} м</span>
           </div>
           <div class="meta-line"><span class="badge">Отмечено строк: ${checked.length} из ${op.rowsCount}</span></div>
         `;
@@ -1061,6 +1207,8 @@
       $("#confirmSaveBtn").onclick = () => {
         const op = operationById(timer.operationId);
         const emp = state.employees.find(e => e.id === timer.employeeId);
+        const currentDeal = currentDealKey();
+        const currentGoal = getCreditGoal(currentDeal);
         const sec = timer.elapsedBeforePauseSec;
         const min = Number((sec/60).toFixed(2));
         const dev = Number((min - op.plannedMinutes).toFixed(2));
@@ -1068,7 +1216,9 @@
 
         state.measurements.push({
           id: `measurement_${Date.now()}`,
-          operationId: op.id, operationTitle: op.title, stage: op.stage, processBlock: op.processBlock, dealType: op.dealType, plannedMinutes: op.plannedMinutes,
+          operationId: op.id, operationTitle: op.title, stage: op.stage, processBlock: op.processBlock, dealType: op.dealType,
+          creditGoalKey: currentDeal, creditGoalLabel: currentGoal.label, operationCreditGoals: op.creditGoals || [], operationGoalRowsCount: op.goalRowsCount || null,
+          plannedMinutes: op.plannedMinutes,
           employeeId: emp.id, employeeName: emp.name, employeeRole: emp.role, employeeProfile: emp.profile,
           startedAt: timer.startedAt, endedAt: isoNow(), durationSec: sec, durationMin: min, deviationMin: dev, deviationPercent: null,
           checkedItems: checked, comment: $("#measurementComment").value.trim(), createdAt: isoNow()
@@ -1077,6 +1227,7 @@
         timer = defaultTimer();
         saveTimer(); saveState();
         document.querySelectorAll('.checklist-item-cb').forEach(c => c.checked = false);
+        updateChecklistCount();
         $("#confirmModal").classList.remove("active");
         renderAll();
         showNotice("Замер успешно сохранен", "success");
@@ -1089,21 +1240,72 @@
         const bl = new Blob([txt], {type: "text/plain;charset=utf-8"});
         const a = document.createElement("a"); a.href = URL.createObjectURL(bl); a.download = fn; a.click();
       }
+
+      function csvCell(value) {
+        const text = value == null ? "" : String(value);
+        const escaped = text.replace(/"/g, '""');
+        return /[;"\n\r]/.test(escaped) ? `"${escaped}"` : escaped;
+      }
       
       $("#exportCsvBtn").onclick = () => {
-        const header = ["session_date","auditor","site","operation_id","operation_title","stage","process_block","deal_type","planned_minutes","employee_id","employee_name","employee_role","employee_profile","started_at","ended_at","duration_sec","duration_min","deviation_min","deviation_percent","checked_items","comment"].join(";") + "\\n";
-        const rows = state.measurements.map(m => [
-          state.session.date, state.session.auditor, state.session.site,
-          m.operationId, m.operationTitle, m.stage, m.processBlock, m.dealType, m.plannedMinutes,
-          m.employeeId, m.employeeName, m.employeeRole, m.employeeProfile,
-          m.startedAt, m.endedAt, m.durationSec, m.durationMin, m.deviationMin, m.deviationPercent||'',
-          (m.checkedItems||[]).join(","), m.comment||""
-        ].join(";")).join("\\n");
+        const header = [
+          "session_date",
+          "auditor",
+          "site",
+          "operation_id",
+          "operation_title",
+          "stage",
+          "process_block",
+          "deal_type",
+          "credit_goal_key",
+          "credit_goal_label",
+          "operation_credit_goals",
+          "operation_goal_rows_izhs_jd",
+          "operation_goal_rows_gzh",
+          "operation_goal_rows_ddu",
+          "operation_goal_rows_total",
+          "planned_minutes",
+          "employee_id",
+          "employee_name",
+          "employee_role",
+          "employee_profile",
+          "started_at",
+          "ended_at",
+          "duration_sec",
+          "duration_min",
+          "deviation_min",
+          "deviation_percent",
+          "checked_items",
+          "comment"
+        ].join(";") + "\\n";
+        const rows = state.measurements.map(m => {
+          const op = operationById(m.operationId);
+          const goalRows = m.operationGoalRowsCount || (op ? op.goalRowsCount : {}) || {};
+          const operationCreditGoals = Array.isArray(m.operationCreditGoals)
+            ? m.operationCreditGoals
+            : (op && Array.isArray(op.creditGoals) ? op.creditGoals : []);
+
+          return [
+            state.session.date, state.session.auditor, state.session.site,
+            m.operationId, m.operationTitle, m.stage, m.processBlock, m.dealType,
+            m.creditGoalKey || "legacy_unknown",
+            m.creditGoalLabel || "Не указано / старый замер",
+            operationCreditGoals.join(","),
+            goalRows.izhsJd ?? "",
+            goalRows.gzh ?? "",
+            goalRows.ddu ?? "",
+            goalRows.total ?? "",
+            m.plannedMinutes,
+            m.employeeId, m.employeeName, m.employeeRole, m.employeeProfile,
+            m.startedAt, m.endedAt, m.durationSec, m.durationMin, m.deviationMin, m.deviationPercent ?? "",
+            (m.checkedItems||[]).join(","), m.comment||""
+          ].map(csvCell).join(";");
+        }).join("\\n");
         downloadFile("export.csv", "\\ufeff" + header + rows);
       };
       
       $("#exportSessionBtn").onclick = () => {
-         const payload = { version: "1.0", state, timer, exportedAt: isoNow() };
+         const payload = { version: "1.1-credit-goals", state, timer, exportedAt: isoNow() };
          downloadFile("session.json", JSON.stringify(payload, null, 2));
       };
 
@@ -1116,7 +1318,7 @@
           try {
             const data = JSON.parse(ev.target.result);
             if(data.state) {
-              state = { ...defaultState(), ...data.state };
+              state = hydrateState(data.state);
               timer = { ...defaultTimer(), ...(data.timer || {}) };
               saveState(); saveTimer(); renderAll();
               showNotice("Сессия успешно импортирована", "success");
