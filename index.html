@@ -300,6 +300,12 @@
     /* Progress issues */
     .problem-list { display: grid; gap: 10px; margin-top: 14px; }
     .problem-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #ffffff; box-shadow: var(--shadow-xs); }
+    .problem-item.assignment-task { cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+    .problem-item.assignment-task:hover { border-color: var(--primary-border); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+    .problem-item.assignment-task:focus-visible { outline: 3px solid rgba(45, 122, 93, 0.22); outline-offset: 2px; }
+    .assignment-inline.assignment-task { cursor: pointer; border-radius: 6px; padding: 6px 0; }
+    .assignment-inline.assignment-task:hover { color: var(--text); }
+    .assignment-inline.assignment-task:focus-visible { outline: 3px solid rgba(45, 122, 93, 0.22); outline-offset: 2px; }
     .problem-title { font-weight: 800; font-size: 14px; margin-bottom: 4px; color: var(--text); }
     .problem-desc { font-size: 12px; color: var(--text-soft); line-height: 1.4; }
 
@@ -622,6 +628,25 @@
               <div class="chip" data-val="custom">Добавленные</div>
             </div>
 
+            <div class="muted-bold">Пул задач:</div>
+            <div class="chips-group" id="chipsAssignmentScope">
+              <div class="chip active" data-val="my">Мои</div>
+              <div class="chip" data-val="all">Все</div>
+              <div class="chip" data-val="unassigned">Без назначения</div>
+            </div>
+
+            <div class="muted-bold">Статус назначения:</div>
+            <div class="chips-group" id="chipsAssignmentStatus">
+              <div class="chip active" data-val="pending">К выполнению</div>
+              <div class="chip" data-val="completed">Выполнено</div>
+              <div class="chip" data-val="all">Все</div>
+            </div>
+
+            <div class="panel mt-4" id="myCalendarPanel">
+              <div class="panel-header"><h3>Мой календарь</h3></div>
+              <div class="panel-body" id="myCalendarList"></div>
+            </div>
+
             <div id="operationsList" class="mt-4"></div>
           </div>
         </div>
@@ -665,6 +690,10 @@
         <div class="alert warning" id="timerWarning"></div>
 
         <div id="measureReadyBlock">
+          <div class="operation-info-card" id="measureCurrentAssignment">
+            <!-- js -->
+          </div>
+
           <div class="employee-info-card" id="measureCurrentEmployee">
             <!-- js -->
           </div>
@@ -724,11 +753,16 @@
           <div class="panel-header"><h2>Прогресс</h2></div>
           <div class="panel-body">
             <div class="counter-grid">
-              <div class="counter"><strong id="coverageAny">0</strong><span>Начато</span></div>
-              <div class="counter"><strong id="coverageFull">0</strong><span>Закрыто</span></div>
-              <div class="counter"><strong id="measurementsTotal">0</strong><span>Замеров</span></div>
+              <div class="counter"><strong id="coverageAny">0</strong><span>Назначено</span></div>
+              <div class="counter"><strong id="coverageFull">0</strong><span>Выполнено</span></div>
+              <div class="counter"><strong id="measurementsTotal">0</strong><span>Осталось</span></div>
               <div class="counter"><strong id="customGroupsTotal">0</strong><span>Доб. групп</span></div>
               <div class="counter"><strong id="customItemsTotal">0</strong><span>Доб. операций</span></div>
+            </div>
+            <div class="muted-bold mt-4">Режим прогресса:</div>
+            <div class="chips-group" id="chipsProgressMode">
+              <div class="chip active" data-val="my">Мой прогресс</div>
+              <div class="chip" data-val="all">Общий прогресс</div>
             </div>
             <p class="meta-line-text mt-4" id="progressScopeNote"></p>
             
@@ -744,11 +778,11 @@
           <div class="panel-header"><h2>Сессия</h2></div>
           <div class="panel-body">
             <div class="form-grid">
-              <label>Проверяющий <input id="sessionAuditor"></label>
-              <label>Дата проверки <input id="sessionDate" type="date"></label>
-              <label>Площадка / Подразделение <input id="sessionSite"></label>
-              <label>Комментарий <textarea id="sessionComment"></textarea></label>
+              <label>Проверяющий
+                <select id="sessionAssignee"></select>
+              </label>
             </div>
+            <p class="meta-line-text mt-4" id="assigneeSessionSummary"></p>
           </div>
         </div>
 
@@ -796,6 +830,7 @@
   </nav>
 
   <script src="data/operations.js"></script>
+  <script src="data/assignments.js"></script>
   
   <script>
     (function () {
@@ -807,6 +842,8 @@
 
       const $ = (selector) => document.querySelector(selector);
       const operations = Array.isArray(window.OPERATIONS) ? window.OPERATIONS : [];
+      const AUDIT_ASSIGNEES = Array.isArray(window.AUDIT_ASSIGNEES) ? window.AUDIT_ASSIGNEES : [];
+      const MEASUREMENT_ASSIGNMENTS = Array.isArray(window.MEASUREMENT_ASSIGNMENTS) ? window.MEASUREMENT_ASSIGNMENTS : [];
       const CREDIT_GOALS = window.CREDIT_GOALS || {
         all: { key: "all", label: "Все цели", shortLabel: "Все" },
         izhs_jd: { key: "izhs_jd", label: "ИЖС + Жилой дом", shortLabel: "ИЖС+ЖД" },
@@ -818,17 +855,20 @@
 
       const todayIso = () => new Date().toISOString().slice(0, 10);
       const isoNow = () => new Date().toISOString();
+      const normalizeAssigneeName = (name) => name === "Аббатуров Д." ? "Абатуров Д." : (name || "");
 
       const defaultState = () => ({
         ui: { mobileView: "measure" },
-        session: { auditor: "", date: todayIso(), site: "", comment: "" },
+        session: { auditor: "", assigneeKey: "", assigneeName: "", date: todayIso(), site: "", comment: "" },
         employees: [],
         measurements: [],
         customGroups: [],
         customItems: [],
+        customAssignments: [],
         selectedEmployeeId: "",
         selectedOperationId: operations[0] ? operations[0].id : "",
-        filters: { search: "", stage: "all", deal: "all", status: "all", source: "all" }
+        selectedAssignmentId: "",
+        filters: { search: "", stage: "all", deal: "all", status: "all", source: "all", assignmentScope: "my", assignmentStatus: "pending", progressMode: "my" }
       });
 
       const defaultTimer = () => ({
@@ -887,13 +927,40 @@
           employees: Array.isArray(saved.employees) ? saved.employees : [],
           measurements: Array.isArray(saved.measurements) ? saved.measurements.map(migrateMeasurement) : [],
           customGroups: Array.isArray(saved.customGroups) ? saved.customGroups.map(migrateCustomGroup) : [],
-          customItems: Array.isArray(saved.customItems) ? saved.customItems.map(migrateCustomItem) : []
+          customItems: Array.isArray(saved.customItems) ? saved.customItems.map(migrateCustomItem) : [],
+          customAssignments: Array.isArray(saved.customAssignments) ? saved.customAssignments.map(migrateCustomAssignment) : [],
+          selectedAssignmentId: saved.selectedAssignmentId || ""
         };
 
         if (!CREDIT_GOALS[next.filters.deal]) next.filters.deal = "all";
         if (!["all", "base", "custom"].includes(next.filters.source)) next.filters.source = "all";
+        if (!["my", "all", "unassigned"].includes(next.filters.assignmentScope)) next.filters.assignmentScope = "my";
+        if (!["all", "pending", "completed"].includes(next.filters.assignmentStatus)) next.filters.assignmentStatus = "pending";
+        if (!["my", "all"].includes(next.filters.progressMode)) next.filters.progressMode = "my";
+        normalizeStoredAssigneeNames(next);
         dedupeCustomEntityIds(next);
         return next;
+      }
+
+      function normalizeStoredAssigneeNames(next) {
+        next.session.auditor = normalizeAssigneeName(next.session.auditor);
+        next.session.assigneeName = normalizeAssigneeName(next.session.assigneeName);
+        next.measurements.forEach(m => {
+          if (m && typeof m === "object") m.assigneeName = normalizeAssigneeName(m.assigneeName);
+        });
+        next.customAssignments.forEach(a => {
+          if (!a || typeof a !== "object") return;
+          a.assigneeName = normalizeAssigneeName(a.assigneeName);
+          a.createdByAuditor = normalizeAssigneeName(a.createdByAuditor);
+        });
+        next.customGroups.forEach(g => {
+          if (!g || typeof g !== "object") return;
+          g.createdByAuditor = normalizeAssigneeName(g.createdByAuditor);
+          if (g.customMeta) g.customMeta.createdByAuditor = normalizeAssigneeName(g.customMeta.createdByAuditor);
+        });
+        next.customItems.forEach(i => {
+          if (i && typeof i === "object") i.createdByAuditor = normalizeAssigneeName(i.createdByAuditor);
+        });
       }
 
       function migrateMeasurement(measurement) {
@@ -913,6 +980,8 @@
             customComment: ""
           }));
         }
+        if (!next.assignmentId) next.assignmentId = "";
+        next.assigneeName = normalizeAssigneeName(next.assigneeName);
         return next;
       }
 
@@ -971,6 +1040,34 @@
           updatedAt: item.updatedAt || isoNow(),
           createdByAuditor: item.createdByAuditor || "",
           isArchived: Boolean(item.isArchived)
+        };
+      }
+
+      function migrateCustomAssignment(assignment) {
+        if (!assignment || typeof assignment !== "object") return assignment;
+        const goal = CUSTOM_GOAL_KEYS.includes(assignment.creditGoalKey) ? assignment.creditGoalKey : "";
+        return {
+          ...assignment,
+          id: assignment.id || `ADHOC-${Date.now()}`,
+          seq: assignment.seq || null,
+          assigneeKey: assignment.assigneeKey || "",
+          assigneeName: normalizeAssigneeName(assignment.assigneeName),
+          date: assignment.date || todayIso(),
+          start: assignment.start || "",
+          end: assignment.end || "",
+          creditGoalKey: goal || "manual_unknown",
+          creditGoalLabel: assignment.creditGoalLabel || (goal ? getCreditGoal(goal).label : "Не указано"),
+          measurementNo: assignment.measurementNo ?? null,
+          operationId: assignment.operationId || "",
+          operationTitle: assignment.operationTitle || "",
+          timingMinutes: Number(assignment.timingMinutes || 0),
+          rowsIn233: Number(assignment.rowsIn233 || 0),
+          priority: assignment.priority || "",
+          assignmentType: assignment.assignmentType || "ad_hoc_custom_group",
+          sourceSheet: assignment.sourceSheet || "session",
+          sourceRow: assignment.sourceRow || null,
+          createdAt: assignment.createdAt || isoNow(),
+          createdByAuditor: normalizeAssigneeName(assignment.createdByAuditor)
         };
       }
 
@@ -1088,6 +1185,85 @@
         return [...baseOperations, ...customGroups];
       }
 
+      function getAllAssignments() {
+        return [...MEASUREMENT_ASSIGNMENTS, ...(state.customAssignments || [])];
+      }
+
+      function assignmentById(id) {
+        return getAllAssignments().find(a => a.id === id);
+      }
+
+      function activeAssignment() {
+        return assignmentById(state.selectedAssignmentId);
+      }
+
+      function getCurrentAssignee() {
+        return AUDIT_ASSIGNEES.find(x => x.key === state.session.assigneeKey) || null;
+      }
+
+      function getAssignmentsForCurrentAssignee() {
+        if (!state.session.assigneeKey) return [];
+        return getAllAssignments().filter(a => a.assigneeKey === state.session.assigneeKey);
+      }
+
+      function assignmentMatchesDeal(assignment, dealKey) {
+        if (!dealKey || dealKey === "all") return true;
+        return assignment.creditGoalKey === dealKey;
+      }
+
+      function assignmentIsCompleted(assignmentId) {
+        return state.measurements.some(m => m.assignmentId === assignmentId);
+      }
+
+      function getAssignmentsForOperation(operationId, options = {}) {
+        return getAllAssignments().filter(a => {
+          if (a.operationId !== operationId) return false;
+          if (options.assigneeKey && a.assigneeKey !== options.assigneeKey) return false;
+          if (options.creditGoalKey && options.creditGoalKey !== "all" && a.creditGoalKey !== options.creditGoalKey) return false;
+          if (options.assignmentType && a.assignmentType !== options.assignmentType) return false;
+          return true;
+        });
+      }
+
+      function assignmentMatchesStatus(assignment, status) {
+        if (!status || status === "all") return true;
+        const done = assignmentIsCompleted(assignment.id);
+        return status === "completed" ? done : !done;
+      }
+
+      function assignmentDateLabel(value) {
+        if (!value) return "";
+        const [y, m, d] = value.split("-");
+        return `${d}.${m}.${y}`;
+      }
+
+      function assignmentShortDateLabel(value) {
+        if (!value) return "";
+        const [y, m, d] = value.split("-");
+        return `${d}.${m}`;
+      }
+
+      function assignmentStatusLabel(assignment) {
+        if (timer.status !== "idle" && timer.operationId === assignment.operationId && state.selectedAssignmentId === assignment.id) return "в работе";
+        return assignmentIsCompleted(assignment.id) ? "выполнено" : "не выполнено";
+      }
+
+      function selectAssignment(assignmentId) {
+        const assignment = assignmentById(assignmentId);
+        if (!assignment) return showNotice("Назначение не найдено", "warning");
+        if (timer.status !== "idle" && timer.operationId !== assignment.operationId) {
+          setMobileView("measure");
+          showNotice("Сначала завершите текущий замер!", "warning");
+          return;
+        }
+        state.selectedAssignmentId = assignment.id;
+        state.selectedOperationId = assignment.operationId;
+        if (assignment.creditGoalKey && CREDIT_GOALS[assignment.creditGoalKey]) state.filters.deal = assignment.creditGoalKey;
+        saveState();
+        renderAll();
+        setMobileView("measure");
+      }
+
       function operationById(id) {
         return getAllOperations(true).find(o => o.id === id);
       }
@@ -1173,6 +1349,30 @@
         saveState();
       }
 
+      function ensureSelectedAssignment() {
+        const assignmentCandidate = activeAssignment();
+        const assignment = assignmentCandidate && assignmentCandidate.operationId === state.selectedOperationId ? assignmentCandidate : null;
+        if (assignment) {
+          if (state.filters.assignmentScope === "my" && state.session.assigneeKey && assignment.assigneeKey !== state.session.assigneeKey) {
+            state.selectedAssignmentId = "";
+          } else if (assignment.operationId === state.selectedOperationId) {
+            return;
+          }
+        }
+
+        if (state.filters.assignmentScope === "my" && state.session.assigneeKey) {
+          const next = getAssignmentsForCurrentAssignee()
+            .filter(a => assignmentMatchesDeal(a, currentDealKey()))
+            .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`))
+            .find(a => !assignmentIsCompleted(a.id));
+          if (next) {
+            state.selectedAssignmentId = next.id;
+            state.selectedOperationId = next.operationId;
+            saveState();
+          }
+        }
+      }
+
       function coverageForOperation(id, dealKey = currentDealKey()) {
         const m = state.measurements.filter(x => {
           if (x.operationId !== id) return false;
@@ -1206,6 +1406,14 @@
           return match ? Math.max(acc, Number(match[1])) : acc;
         }, 0);
         return `CUSTOM-ITEM-${String(max + 1).padStart(3, "0")}`;
+      }
+
+      function nextAdHocAssignmentId() {
+        const max = (state.customAssignments || []).reduce((acc, assignment) => {
+          const match = String(assignment.id || "").match(/^ADHOC-CUSTOM-GRP-(\d+)$/);
+          return match ? Math.max(acc, Number(match[1])) : acc;
+        }, 0);
+        return `ADHOC-CUSTOM-GRP-${String(max + 1).padStart(3, "0")}`;
       }
 
       function findSimilarOperations(title) {
@@ -1279,7 +1487,41 @@
           similarBaseItemId: ""
         }, { skipSave: true }));
         syncCustomGroupRows(id);
+        createAdHocAssignmentForCustomGroup(group);
         return group;
+      }
+
+      function createAdHocAssignmentForCustomGroup(group) {
+        const assignee = getCurrentAssignee();
+        if (!assignee) return null;
+        const deal = currentDealKey() === "all" ? (group.creditGoals?.[0] || "manual_unknown") : currentDealKey();
+        const assignment = {
+          id: nextAdHocAssignmentId(),
+          seq: null,
+          assigneeKey: assignee.key,
+          assigneeName: assignee.label,
+          date: state.session.date || todayIso(),
+          start: "",
+          end: "",
+          creditGoalKey: deal,
+          creditGoalLabel: getCreditGoal(deal).label || "Не указано",
+          measurementNo: null,
+          operationId: group.id,
+          processBlock: group.processBlock,
+          operationTitle: group.title,
+          priority: "ad-hoc",
+          timingMinutes: 0,
+          rowsIn233: group.rowsCount || 0,
+          timingSource: "Создано проверяющим",
+          assignmentType: "ad_hoc_custom_group",
+          sourceSheet: "session",
+          sourceRow: null,
+          createdAt: isoNow(),
+          createdByAuditor: state.session.assigneeName || state.session.auditor || ""
+        };
+        state.customAssignments.push(assignment);
+        state.selectedAssignmentId = assignment.id;
+        return assignment;
       }
 
       function updateCustomGroup(id, payload) {
@@ -1320,6 +1562,15 @@
           similarBaseItemId: ""
         }, { skipSave: true }));
         syncCustomGroupRows(id);
+        (state.customAssignments || []).filter(a => a.operationId === id && a.assignmentType === "ad_hoc_custom_group").forEach(a => {
+          a.operationTitle = group.title;
+          a.processBlock = group.processBlock;
+          a.rowsIn233 = group.rowsCount || 0;
+          if (!group.creditGoals.includes(a.creditGoalKey) && group.creditGoals.length) {
+            a.creditGoalKey = group.creditGoals[0];
+            a.creditGoalLabel = getCreditGoal(a.creditGoalKey).label;
+          }
+        });
         return group;
       }
 
@@ -1437,6 +1688,7 @@
       ----------------------------------------*/
       function renderAll() {
         ensureSelectedOperationInDeal();
+        ensureSelectedAssignment();
         renderMeasureTab();
         renderOperationsTab();
         renderEmployeesTab();
@@ -1453,15 +1705,18 @@
 
       function renderHeader() {
         const op = activeOp();
-        const goal = getCreditGoal(currentDealKey());
-        $("#mobileHeaderStatus").innerHTML = `<span>${op ? op.id : "Нет"} · ${goal.shortLabel} · <span id="headerTimerText">${formatDuration(getElapsedSec())}</span></span>`;
+        const assignee = getCurrentAssignee();
+        const myAssignments = getAssignmentsForCurrentAssignee();
+        const done = myAssignments.filter(a => assignmentIsCompleted(a.id)).length;
+        const assigneeText = assignee ? `${assignee.label} · Мои задачи: ${done} / ${myAssignments.length}` : "Выберите проверяющего";
+        $("#mobileHeaderStatus").innerHTML = `<span>${escapeHtml(assigneeText)} · ${op ? escapeHtml(op.id) : "Нет"} · <span id="headerTimerText">${formatDuration(getElapsedSec())}</span></span>`;
       }
 
       function renderMeasureTab() {
         const op = activeOp();
         const emp = activeEmp();
 
-        if (!op || !emp) {
+        if (!op) {
           $("#measureReadyBlock").classList.add("hidden");
           $("#measureEmptyBlock").classList.remove("hidden");
           return;
@@ -1470,13 +1725,48 @@
         $("#measureEmptyBlock").classList.add("hidden");
         $("#measureReadyBlock").classList.remove("hidden");
 
-        $("#measureCurrentEmployee").innerHTML = `
+        const assignmentCandidate = activeAssignment();
+        const assignment = assignmentCandidate && assignmentCandidate.operationId === op.id ? assignmentCandidate : null;
+        $("#measureCurrentAssignment").innerHTML = assignment ? `
+          <div class="operation-card-top mb-2">
+            <div class="meta-line">
+              <span class="badge">${escapeHtml(assignment.id)}</span>
+              <span class="badge">${escapeHtml(assignment.creditGoalLabel)}</span>
+              <span class="badge">замер ${assignment.measurementNo ?? '-'}</span>
+              <span class="status-pill ${assignmentIsCompleted(assignment.id) ? 'complete' : 'empty'}">${assignmentStatusLabel(assignment)}</span>
+            </div>
+          </div>
+          <h3>Назначение</h3>
+          <div class="meta-line mt-4">
+            <span class="meta-line-text">Проверяющий: <strong class="text">${escapeHtml(assignment.assigneeName || 'не указан')}</strong></span>
+            <span class="meta-line-text">Дата: <strong class="text">${assignmentDateLabel(assignment.date)}</strong></span>
+            <span class="meta-line-text">DI-группа: <strong class="text">${escapeHtml(assignment.operationId)}</strong></span>
+          </div>
+        ` : `
+          <div class="operation-card-top" style="margin-bottom:0; align-items:center;">
+            <div>
+              <div class="employee-name">Назначение не выбрано</div>
+              <div class="meta-line-text">В режиме «Мои задачи» нужно выбрать конкретное назначение из списка или календаря.</div>
+            </div>
+            <button type="button" class="ghost switch-view" data-target="operations">К задачам</button>
+          </div>
+        `;
+
+        $("#measureCurrentEmployee").innerHTML = emp ? `
           <div class="operation-card-top" style="margin-bottom:0; align-items:center;">
              <div>
                 <div class="employee-name">${emp.name}</div>
                 <div class="meta-line-text">${PROFILES[emp.profile] || emp.profile} · ${emp.role || "без роли"}</div>
              </div>
              <button type="button" class="ghost switch-view" data-target="employees">Сменить</button>
+          </div>
+        ` : `
+          <div class="operation-card-top" style="margin-bottom:0; align-items:center;">
+             <div>
+                <div class="employee-name">Сотрудник не выбран</div>
+                <div class="meta-line-text">Выберите сотрудника перед стартом замера.</div>
+             </div>
+             <button type="button" class="primary switch-view" data-target="employees">Выбрать</button>
           </div>
         `;
 
@@ -1571,11 +1861,54 @@
         }
       }
 
+      function renderMyCalendar() {
+        const panel = $("#myCalendarPanel");
+        const list = $("#myCalendarList");
+        if (!panel || !list) return;
+        const assignee = getCurrentAssignee();
+        if (!assignee) {
+          list.innerHTML = `<div class="empty-note"><p class="empty-note-title">Проверяющий не выбран</p><p class="empty-note-desc">Выберите себя выше, чтобы увидеть персональный календарь.</p></div>`;
+          return;
+        }
+        const assignments = getAssignmentsForCurrentAssignee()
+          .filter(a => assignmentMatchesDeal(a, currentDealKey()))
+          .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
+
+        const grouped = assignments.reduce((acc, assignment) => {
+          (acc[assignment.date] ||= []).push(assignment);
+          return acc;
+        }, {});
+
+        list.innerHTML = Object.keys(grouped).map(date => `
+          <div class="mb-3">
+            <div class="muted-bold">${assignmentDateLabel(date)}</div>
+            <div class="problem-list">
+              ${grouped[date].map(a => {
+                const status = assignmentStatusLabel(a);
+                const cls = status === "выполнено" ? "complete" : status === "в работе" ? "partial" : "empty";
+	                return `
+	                  <div class="problem-item assignment-task" data-assignment-id="${escapeAttr(a.id)}" role="button" tabindex="0">
+	                    <div>
+	                      <div class="problem-title">${escapeHtml(a.operationId)} · ${escapeHtml(a.creditGoalLabel)} · замер ${a.measurementNo ?? '-'}</div>
+	                      <div class="problem-desc">${escapeHtml(a.operationTitle || '')}</div>
+	                    </div>
+                    <button type="button" class="status-pill ${cls} select-assignment-btn" data-id="${escapeAttr(a.id)}">${status}</button>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          </div>
+        `).join("") || `<div class="empty-note"><p class="empty-note-title">Назначений нет</p><p class="empty-note-desc">Для выбранной цели кредита в персональном пуле ничего не найдено.</p></div>`;
+      }
+
       function renderOperationsTab() {
         document.querySelectorAll("#chipsDeal .chip").forEach(c => c.classList.toggle("active", c.dataset.val === currentDealKey()));
         document.querySelectorAll("#chipsStage .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.stage));
         document.querySelectorAll("#chipsStatus .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.status));
         document.querySelectorAll("#chipsSource .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.source));
+        document.querySelectorAll("#chipsAssignmentScope .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.assignmentScope));
+        document.querySelectorAll("#chipsAssignmentStatus .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.assignmentStatus));
+        renderMyCalendar();
 
         const list = $("#operationsList");
         const query = state.filters.search.toLowerCase();
@@ -1583,11 +1916,27 @@
         const st = state.filters.stage;
         const cov = state.filters.status;
         const source = state.filters.source || "all";
+        const assignmentScope = state.filters.assignmentScope || "my";
+        const assignmentStatus = state.filters.assignmentStatus || "pending";
+        const assigneeKey = state.session.assigneeKey;
+        const assignmentOptions = {
+          assigneeKey: assignmentScope === "my" ? assigneeKey : "",
+          creditGoalKey: deal
+        };
 
         const filtered = getAllOperations().filter(o => {
           if (!operationMatchesDeal(o, deal)) return false;
           if (source === "base" && o.sourceType !== "base") return false;
           if (source === "custom" && o.sourceType !== "custom_group") return false;
+          const opAssignments = getAssignmentsForOperation(o.id, assignmentOptions)
+            .filter(a => assignmentMatchesDeal(a, deal))
+            .filter(a => assignmentMatchesStatus(a, assignmentStatus));
+          if (assignmentScope === "my" && (!assigneeKey || !opAssignments.length)) return false;
+          if (assignmentScope === "all" && !opAssignments.length) return false;
+          if (assignmentScope === "unassigned") {
+            const planned = getAssignmentsForOperation(o.id).filter(a => a.assignmentType === "planned");
+            if (planned.length && o.sourceType !== "custom_group") return false;
+          }
           const haystack = [
             o.id,
             o.title,
@@ -1612,8 +1961,9 @@
         if (!filtered.length) {
           list.innerHTML = `
             <div class="empty-note">
-              <p class="empty-note-title">Операции не найдены</p>
-              <p class="empty-note-desc">Можно сбросить поиск, этап или покрытие. Текущая цель кредита: ${getCreditGoal(deal).shortLabel}.</p>
+              <p class="empty-note-title">${!state.session.assigneeKey && assignmentScope === "my" ? "Проверяющий не выбран" : "Операции не найдены"}</p>
+              <p class="empty-note-desc">${!state.session.assigneeKey && assignmentScope === "my" ? "Откройте раздел «Еще» и подтвердите проверяющего, чтобы увидеть персональный пул задач." : `Можно сбросить поиск, этап или покрытие. Текущая цель кредита: ${getCreditGoal(deal).shortLabel}.`}</p>
+              ${!state.session.assigneeKey && assignmentScope === "my" ? '<button type="button" class="primary switch-view" data-target="more">Выбрать проверяющего</button>' : ''}
               <button type="button" class="primary" id="emptyAddCustomGroupBtn">+ Добавить фактическую группу</button>
             </div>
           `;
@@ -1625,6 +1975,22 @@
           const cpCls = cp.status==='complete'?'complete':cp.status==='partial'?'partial':'empty';
           const cpTxt = cp.status==='complete'?'Полн.':cp.status==='partial'?'Част.':'Нет';
           const isCustom = op.sourceType === "custom_group";
+          const assignments = getAssignmentsForOperation(op.id, assignmentOptions)
+            .filter(a => assignmentMatchesDeal(a, deal))
+            .filter(a => assignmentScope === "unassigned" ? a.assignmentType !== "planned" : true)
+            .filter(a => assignmentMatchesStatus(a, assignmentStatus))
+            .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
+          const assignmentsHtml = assignments.length ? `
+            <div class="custom-comment">
+	              <strong>Назначения:</strong>
+		              ${assignments.map(a => `
+		                <div class="problem-desc assignment-inline assignment-task" data-assignment-id="${escapeAttr(a.id)}" role="button" tabindex="0" style="margin-top:6px;">
+		                  ${escapeHtml(a.creditGoalLabel)} · замер ${a.measurementNo ?? '-'} · ${assignmentShortDateLabel(a.date)} · ${escapeHtml(a.assigneeName || 'без роли')} · ${assignmentStatusLabel(a)}
+		                  <button type="button" class="ghost select-assignment-btn" data-id="${escapeAttr(a.id)}" style="min-height:30px;padding:4px 8px;margin-left:6px;font-size:12px;">Выбрать</button>
+		                </div>
+	              `).join("")}
+            </div>
+          ` : "";
           return `
             <div class="operation-item ${op.id === state.selectedOperationId ? 'active' : ''}">
               <div class="operation-card-top">
@@ -1640,7 +2006,8 @@
               <div class="operation-card-bottom">
                 <span>Строк: ${getOperationRowsCount(op.id)}</span>
                 ${isCustom && op.customMeta?.comment ? `<span class="custom-comment">Комментарий: ${escapeHtml(op.customMeta.comment)}</span>` : ''}
-                <button type="button" class="primary select-op-btn" data-id="${escapeAttr(op.id)}">Выбрать</button>
+                ${assignmentsHtml}
+                <button type="button" class="primary select-op-btn" data-id="${escapeAttr(op.id)}">Выбрать группу</button>
                 ${isCustom ? `
                   <div class="operation-card-actions">
                     <button type="button" class="ghost edit-custom-group-btn" data-id="${escapeAttr(op.id)}">Редактировать</button>
@@ -1675,43 +2042,78 @@
       }
 
       function renderProgressTab() {
-        const deal = currentDealKey();
-        const goal = getCreditGoal(deal);
-        const scopeOperations = getAllOperations().filter(o => operationMatchesDeal(o, deal));
-        const coverList = scopeOperations.map(o => ({ op: o, p: coverageForOperation(o.id, deal) }));
-        const scopeMeasurements = state.measurements.filter(m => deal === "all" || m.creditGoalKey === deal);
-        const any = coverList.filter(c => c.p.status !== "none").length;
-        const full = coverList.filter(c => c.p.status === "complete").length;
+        document.querySelectorAll("#chipsProgressMode .chip").forEach(c => c.classList.toggle("active", c.dataset.val === (state.filters.progressMode || "my")));
+        const progressMode = state.filters.progressMode || "my";
+        const assignments = progressMode === "my" ? getAssignmentsForCurrentAssignee() : getAllAssignments().filter(a => a.assignmentType === "planned");
+        const completed = assignments.filter(a => assignmentIsCompleted(a.id));
+        const pendingCount = Math.max(0, assignments.length - completed.length);
 
-        $("#coverageAny").textContent = any;
-        $("#coverageFull").textContent = full;
-        $("#measurementsTotal").textContent = scopeMeasurements.length;
+        $("#coverageAny").textContent = assignments.length;
+        $("#coverageFull").textContent = completed.length;
+        $("#measurementsTotal").textContent = pendingCount;
         $("#customGroupsTotal").textContent = (state.customGroups || []).filter(g => !g.isArchived).length;
         $("#customItemsTotal").textContent = (state.customItems || []).filter(i => !i.isArchived).length;
-        $("#progressScopeNote").textContent = `Покрытие считается для выбранной цели кредита: ${goal.label}`;
+        $("#progressScopeNote").textContent = `${progressMode === "my" ? "Мой прогресс" : "Общий прогресс"}: назначено ${assignments.length}, выполнено ${completed.length}, осталось ${pendingCount}`;
 
-        const pList = coverList.filter(c => c.p.status !== "complete").slice(0, 50); 
-        $("#progressIssuesList").innerHTML = pList.length ? pList.map(c => `
-          <div class="problem-item">
-            <div>
-              <div class="problem-title">${escapeHtml(c.op.id)} <span style="font-weight:normal;color:var(--muted)">${c.p.status==='none'?'Не измерено':'Частично'}</span></div>
-              <div class="problem-desc">${escapeHtml(operationGoalBadgeText(c.op, deal))} · ${c.op.sourceType === 'custom_group' ? 'Добавлена проверяющим · ' : ''}Эксп: ${c.p.expert?'✓':'-'} · Срд: ${c.p.middle?'✓':'-'} · Нов: ${c.p.novice?'✓':'-'}</div>
-            </div>
-            <button class="ghost select-op-btn" data-id="${escapeAttr(c.op.id)}">Открыть</button>
+        const pending = assignments.filter(a => !assignmentIsCompleted(a.id)).slice(0, 50);
+        $("#progressIssuesList").innerHTML = pending.length ? pending.map(a => `
+	          <div class="problem-item assignment-task" data-assignment-id="${escapeAttr(a.id)}" role="button" tabindex="0">
+	            <div>
+	              <div class="problem-title">${escapeHtml(a.operationId)} · ${escapeHtml(a.creditGoalLabel)} · замер ${a.measurementNo ?? "-"}</div>
+	              <div class="problem-desc">${assignmentDateLabel(a.date)} · ${escapeHtml(a.assigneeName || "")}</div>
+	            </div>
+            <button class="ghost select-assignment-btn" data-id="${escapeAttr(a.id)}">Открыть</button>
           </div>
         `).join("") : `
           <div class="empty-note">
-            <p class="empty-note-title">Покрытие закрыто</p>
-            <p class="empty-note-desc">Все операции в текущей цели кредита имеют полный набор замеров.</p>
+            <p class="empty-note-title">Все назначения выполнены</p>
+            <p class="empty-note-desc">В выбранном режиме прогресса нет задач к выполнению.</p>
           </div>
         `;
       }
 
       function renderMoreTab() {
-        $("#sessionAuditor").value = state.session.auditor || "";
-        $("#sessionDate").value = state.session.date || todayIso();
-        $("#sessionSite").value = state.session.site || "";
-        $("#sessionComment").value = state.session.comment || "";
+        $("#sessionAssignee").innerHTML = `<option value="">Выберите проверяющего</option>` + AUDIT_ASSIGNEES.map(a =>
+          `<option value="${escapeAttr(a.key)}">${escapeHtml(a.label)} · ${a.assignmentsCount} назнач.</option>`
+        ).join("");
+        $("#sessionAssignee").value = state.session.assigneeKey || "";
+        const assignee = getCurrentAssignee();
+        if (!assignee) {
+          $("#assigneeSessionSummary").textContent = "Выберите проверяющего, чтобы загрузить персональный пул групп.";
+          return;
+        }
+        const assignments = getAssignmentsForCurrentAssignee();
+        const completed = assignments.filter(a => assignmentIsCompleted(a.id)).length;
+        const pending = Math.max(0, assignments.length - completed);
+        const goals = (assignee.primaryGoals || []).map(goal => getCreditGoal(goal).shortLabel).join(" / ");
+        $("#assigneeSessionSummary").textContent = `Пул загружен: ${completed} / ${assignments.length} выполнено, осталось ${pending}${goals ? `. ${goals}` : ""}`;
+      }
+
+      function applyAssigneeSelection(assigneeKey) {
+        if (timer.status !== "idle") {
+          $("#sessionAssignee").value = state.session.assigneeKey || "";
+          showNotice("Сначала завершите или сбросьте текущий замер", "warning");
+          return;
+        }
+        const assignee = AUDIT_ASSIGNEES.find(a => a.key === assigneeKey);
+        if (!assignee) {
+          $("#sessionAssignee").value = state.session.assigneeKey || "";
+          showNotice("Выберите проверяющего из списка", "warning");
+          return;
+        }
+
+        state.session.assigneeKey = assignee.key;
+        state.session.assigneeName = assignee.label;
+        state.session.auditor = assignee.label;
+        state.selectedAssignmentId = "";
+        state.filters.assignmentScope = "my";
+        state.filters.assignmentStatus = "pending";
+        state.filters.deal = "all";
+        saveState();
+        ensureSelectedAssignment();
+        renderAll();
+        setMobileView("operations");
+        showNotice(`Пул задач загружен: ${assignee.label}`, "success");
       }
 
       function fillCustomGroupOptions() {
@@ -1917,7 +2319,16 @@
             showNotice("Сначала завершите текущий замер!", "warning");
             return;
           }
+          const candidateAssignments = getAssignmentsForOperation(id, {
+            assigneeKey: state.filters.assignmentScope === "my" ? state.session.assigneeKey : "",
+            creditGoalKey: currentDealKey()
+          }).filter(a => assignmentMatchesStatus(a, state.filters.assignmentStatus || "all"));
+          if (candidateAssignments.length) {
+            selectAssignment(candidateAssignments[0].id);
+            return;
+          }
           state.selectedOperationId = id;
+          state.selectedAssignmentId = "";
           saveState(); renderAll(); setMobileView("measure");
         }
 
@@ -1952,6 +2363,27 @@
 
         const chipSource = e.target.closest("#chipsSource .chip");
         if (chipSource) { state.filters.source = chipSource.dataset.val; saveState(); renderOperationsTab(); }
+
+        const chipAssignmentScope = e.target.closest("#chipsAssignmentScope .chip");
+        if (chipAssignmentScope) { state.filters.assignmentScope = chipAssignmentScope.dataset.val; saveState(); renderAll(); }
+
+        const chipAssignmentStatus = e.target.closest("#chipsAssignmentStatus .chip");
+        if (chipAssignmentStatus) { state.filters.assignmentStatus = chipAssignmentStatus.dataset.val; saveState(); renderAll(); }
+
+        const chipProgressMode = e.target.closest("#chipsProgressMode .chip");
+        if (chipProgressMode) { state.filters.progressMode = chipProgressMode.dataset.val; saveState(); renderProgressTab(); }
+
+        const selectAssignmentBtn = e.target.closest(".select-assignment-btn");
+        if (selectAssignmentBtn) {
+          selectAssignment(selectAssignmentBtn.dataset.id);
+          return;
+        }
+
+        const assignmentTask = e.target.closest(".assignment-task");
+        if (assignmentTask && !e.target.closest("button, a, input, select, textarea, label")) {
+          selectAssignment(assignmentTask.dataset.assignmentId);
+          return;
+        }
 
         if (e.target.closest("#showAddCustomGroupBtn") || e.target.closest("#emptyAddCustomGroupBtn")) openCustomGroupModal();
 
@@ -1990,8 +2422,14 @@
 
       $("#filterSearch").oninput = (e) => { state.filters.search = e.target.value; saveState(); renderOperationsTab(); };
 
-      ["Auditor", "Date", "Site", "Comment"].forEach(f => {
-        $(`#session${f}`).oninput = (e) => { state.session[f.toLowerCase()] = e.target.value; saveState(); }
+      $("#sessionAssignee").onchange = (e) => applyAssigneeSelection(e.target.value);
+
+      document.addEventListener("keydown", (e) => {
+        if (!["Enter", " "].includes(e.key)) return;
+        const assignmentTask = e.target.closest(".assignment-task");
+        if (!assignmentTask) return;
+        e.preventDefault();
+        selectAssignment(assignmentTask.dataset.assignmentId);
       });
 
       $("#customGroupCancelBtn").onclick = closeCustomGroupModal;
@@ -2036,14 +2474,33 @@
 
       // TIMER
       $("#timerStartBtn").onclick = () => {
-        if (!activeOp() || !activeEmp()) {
+        const op = activeOp();
+        const emp = activeEmp();
+        if (!op || !emp) {
           showNotice("Для старта выберите операцию и сотрудника", "warning");
           return;
         }
-        if (currentDealKey() === "all") {
+        const assignmentCandidate = activeAssignment();
+        const assignment = assignmentCandidate && assignmentCandidate.operationId === op.id ? assignmentCandidate : null;
+        if (state.filters.assignmentScope === "my" && !assignment) {
+          showNotice("В режиме «Мои задачи» выберите конкретное назначение", "warning");
+          setMobileView("operations");
+          return;
+        }
+        if (assignment) {
+          if (assignment.operationId !== op.id) {
+            showNotice("Выбранное назначение не совпадает с DI-группой", "warning");
+            return;
+          }
+          if (CUSTOM_GOAL_KEYS.includes(assignment.creditGoalKey) && currentDealKey() !== assignment.creditGoalKey) {
+            state.filters.deal = assignment.creditGoalKey;
+            saveState();
+          }
+        }
+        if (currentDealKey() === "all" && !assignment) {
           showNotice("Выбран общий режим «Все цели». Для продуктовой аналитики лучше выбрать ИЖС+ЖД, ГЖ или ДДУ.", "warning");
         }
-        timer = { operationId: activeOp().id, employeeId: activeEmp().id, startedAt: isoNow(), runningSince: isoNow(), elapsedBeforePauseSec: 0, status: "running" };
+        timer = { operationId: op.id, employeeId: emp.id, startedAt: isoNow(), runningSince: isoNow(), elapsedBeforePauseSec: 0, status: "running" };
         saveTimer(); renderAll();
       };
       $("#timerPauseBtn").onclick = () => {
@@ -2068,9 +2525,10 @@
         if(timer.status === "running") { timer.status = "paused"; timer.runningSince = ""; saveTimer(); renderAll(); }
         
         const op = operationById(timer.operationId);
-        const deal = currentDealKey();
+        const assignment = activeAssignment();
+        const deal = assignment?.creditGoalKey || currentDealKey();
         const goal = getCreditGoal(deal);
-        const goalLabel = deal === "all" ? "Все цели / общий режим" : goal.label;
+        const goalLabel = assignment?.creditGoalLabel || (deal === "all" ? "Все цели / общий режим" : goal.label);
         const sec = timer.elapsedBeforePauseSec;
         const checkedDetailed = getCheckedItemsDetailed(op.id);
         const customChecked = checkedDetailed.filter(item => item.sourceType === "custom_item");
@@ -2087,6 +2545,7 @@
           <div class="operation-title" style="margin-top:0;">${escapeHtml(op.id)} · ${escapeHtml(op.title)}</div>
           <div class="meta-line-text mb-3">Сотрудник: ${state.employees.find(e=>e.id===timer.employeeId)?.name || ''}</div>
           <div class="meta-line-text mb-3">Цель кредита: ${escapeHtml(goalLabel)}</div>
+          ${assignment ? `<div class="meta-line-text mb-3">Назначение: ${escapeHtml(assignment.id)} · ${assignmentDateLabel(assignment.date)} · замер ${assignment.measurementNo ?? '-'}</div>` : ''}
           <div class="meta-line-text mb-3">Источник группы: ${SOURCE_LABELS[op.sourceType] || "Базовая"}</div>
           <div class="meta-line mb-2">
              <span class="badge">Факт: ${formatDuration(sec)}</span>
@@ -2105,7 +2564,12 @@
       $("#confirmSaveBtn").onclick = () => {
         const op = operationById(timer.operationId);
         const emp = state.employees.find(e => e.id === timer.employeeId);
-        const currentDeal = currentDealKey();
+        const assignment = activeAssignment();
+        if (state.filters.assignmentScope === "my" && !assignment) {
+          showNotice("Нельзя сохранить замер в режиме «Мои задачи» без выбранного назначения", "warning");
+          return;
+        }
+        const currentDeal = assignment?.creditGoalKey || currentDealKey();
         const currentGoal = getCreditGoal(currentDeal);
         const sec = timer.elapsedBeforePauseSec;
         const min = Number((sec/60).toFixed(2));
@@ -2116,7 +2580,14 @@
         state.measurements.push({
           id: `measurement_${Date.now()}`,
           operationId: op.id, operationTitle: op.title, stage: op.stage, processBlock: op.processBlock, dealType: op.dealType,
-          creditGoalKey: currentDeal, creditGoalLabel: currentGoal.label, operationCreditGoals: op.creditGoals || [], operationGoalRowsCount: op.goalRowsCount || null,
+          assignmentId: assignment?.id || "", assignmentSeq: assignment?.seq ?? null, assignmentType: assignment?.assignmentType || "legacy",
+          assigneeKey: assignment?.assigneeKey || state.session.assigneeKey || "", assigneeName: assignment?.assigneeName || state.session.assigneeName || "",
+          assignmentDate: assignment?.date || "", assignmentStart: assignment?.start || "", assignmentEnd: assignment?.end || "",
+          assignmentCreditGoalKey: assignment?.creditGoalKey || "", assignmentCreditGoalLabel: assignment?.creditGoalLabel || "",
+          assignmentMeasurementNo: assignment?.measurementNo ?? null, assignmentTimingMinutes: assignment?.timingMinutes ?? null,
+          assignmentRowsIn233: assignment?.rowsIn233 ?? null, assignmentPriority: assignment?.priority || "",
+          assignmentSourceSheet: assignment?.sourceSheet || "", assignmentSourceRow: assignment?.sourceRow ?? null,
+          creditGoalKey: currentDeal, creditGoalLabel: assignment?.creditGoalLabel || currentGoal.label, operationCreditGoals: op.creditGoals || [], operationGoalRowsCount: op.goalRowsCount || null,
           operationSourceType: op.sourceType || "base", isCustomGroup: op.sourceType === "custom_group", customGroupId: op.sourceType === "custom_group" ? op.id : "",
           rowsCount: getOperationRowsCount(op.id),
           plannedMinutes: op.plannedMinutes,
@@ -2156,6 +2627,22 @@
           "stage",
           "process_block",
           "deal_type",
+          "assignment_id",
+          "assignment_seq",
+          "assignment_type",
+          "assignee_key",
+          "assignee_name",
+          "assignment_date",
+          "assignment_start",
+          "assignment_end",
+          "assignment_credit_goal_key",
+          "assignment_credit_goal_label",
+          "assignment_measurement_no",
+          "assignment_timing_minutes",
+          "assignment_rows_in_233",
+          "assignment_priority",
+          "assignment_source_sheet",
+          "assignment_source_row",
           "operation_source_type",
           "is_custom_group",
           "custom_group_id",
@@ -2208,6 +2695,22 @@
           return [
             state.session.date, state.session.auditor, state.session.site,
             m.operationId, m.operationTitle, m.stage, m.processBlock, m.dealType,
+            m.assignmentId || "",
+            m.assignmentSeq ?? "",
+            m.assignmentType || "",
+            m.assigneeKey || "",
+            m.assigneeName || "",
+            m.assignmentDate || "",
+            m.assignmentStart || "",
+            m.assignmentEnd || "",
+            m.assignmentCreditGoalKey || "",
+            m.assignmentCreditGoalLabel || "",
+            m.assignmentMeasurementNo ?? "",
+            m.assignmentTimingMinutes ?? "",
+            m.assignmentRowsIn233 ?? "",
+            m.assignmentPriority || "",
+            m.assignmentSourceSheet || "",
+            m.assignmentSourceRow ?? "",
             operationSourceType,
             isCustomGroup ? "1" : "0",
             isCustomGroup ? m.operationId : "",
@@ -2241,7 +2744,7 @@
       };
       
       $("#exportSessionBtn").onclick = () => {
-         const payload = { version: "1.2-custom-groups", state, timer, exportedAt: isoNow() };
+         const payload = { version: "1.3-assignment-pool", state, timer, exportedAt: isoNow() };
          downloadFile("session.json", JSON.stringify(payload, null, 2));
       };
 
