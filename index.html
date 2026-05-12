@@ -738,6 +738,15 @@
             </div>
           </div>
 
+          <div class="panel" id="liveCommentPanel">
+            <div class="panel-header">
+              <h3>Комментарий к замеру</h3>
+            </div>
+            <div class="panel-body">
+              <textarea id="liveMeasurementComment" placeholder="Можно фиксировать детали прямо во время замера..."></textarea>
+            </div>
+          </div>
+
           <div class="panel" id="checklistPanel">
             <div class="panel-header">
               <h3>Состав операции</h3>
@@ -1972,6 +1981,11 @@
           }).join("");
           updateChecklistCount();
         }
+
+        const liveComment = $("#liveMeasurementComment");
+        if (liveComment && document.activeElement !== liveComment) {
+          liveComment.value = state.measurementCommentDraft || "";
+        }
       }
 
       function updateChecklistCount() {
@@ -2016,7 +2030,7 @@
         $("#timerResetBtn").classList.toggle("hidden", timer.status === "idle");
         $("#timerPauseBtn").classList.toggle("hidden", timer.status !== "running");
         $("#timerResumeBtn").classList.toggle("hidden", timer.status !== "paused");
-        $("#showAddCustomItemBtn").disabled = timer.status === "running";
+        $("#showAddCustomItemBtn").disabled = false;
 
         if (timer.status === "running") {
           if(lbl) { lbl.textContent = "Идет замер"; lbl.className = "status-pill partial"; }
@@ -2390,7 +2404,6 @@
         const op = activeOp();
         if (!op) return showNotice("Сначала выберите группу", "warning");
         const item = itemId ? state.customItems.find(x => x.id === itemId) : null;
-        if (!item && timer.status === "running") return showNotice("Добавлять операцию можно до старта или на паузе", "warning");
 
         const parent = item ? operationById(item.parentOperationId) : op;
         $("#customItemId").value = item?.id || "";
@@ -3222,9 +3235,24 @@
         reader.readAsText(f);
       };
 
-      $("#measurementComment").oninput = (e) => {
+      $("#liveMeasurementComment").oninput = (e) => {
         state.measurementCommentDraft = e.target.value;
         recordAction("measurement_comment_draft_updated", {
+          source: "measure_screen",
+          value: e.target.value,
+          operationId: timer.operationId || state.selectedOperationId,
+          employeeId: timer.employeeId || state.selectedEmployeeId
+        });
+      };
+
+      $("#measurementComment").oninput = (e) => {
+        state.measurementCommentDraft = e.target.value;
+        const liveComment = $("#liveMeasurementComment");
+        if (liveComment && document.activeElement !== liveComment) {
+          liveComment.value = e.target.value;
+        }
+        recordAction("measurement_comment_draft_updated", {
+          source: "confirm_modal",
           value: e.target.value,
           operationId: timer.operationId || state.selectedOperationId,
           employeeId: timer.employeeId || state.selectedEmployeeId
