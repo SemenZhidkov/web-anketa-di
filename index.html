@@ -322,6 +322,13 @@
     .assignment-inline.assignment-task:focus-visible { outline: 3px solid rgba(45, 122, 93, 0.22); outline-offset: 2px; }
     .problem-title { font-weight: 800; font-size: 14px; margin-bottom: 4px; color: var(--text); }
     .problem-desc { font-size: 12px; color: var(--text-soft); line-height: 1.4; }
+    .progress-result { align-items: flex-start; }
+    .progress-result-main { flex: 1; min-width: 0; }
+    .progress-result button { flex-shrink: 0; }
+    .result-stats { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .result-stat { display: inline-flex; align-items: baseline; gap: 5px; border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--text-soft); padding: 5px 8px; font-size: 12px; font-weight: 750; }
+    .result-stat strong { color: var(--text); font-size: 13px; }
+    .latest-comment { margin-top: 8px; padding-left: 10px; border-left: 3px solid var(--primary-border); color: var(--text-soft); font-size: 12px; line-height: 1.4; }
 
     /* Checklist */
     .items-list { border: 0; border-radius: 0; overflow: visible; display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -402,6 +409,7 @@
     /* Screens logic */
     .mobile-view { display: none; }
     .hidden { display: none !important; }
+    .w-full { width: 100%; justify-content: center; }
 
     /* Desktop Layout */
     @media (min-width: 769px) {
@@ -419,6 +427,8 @@
       .bottom-nav { display: grid; }
       .top-actions { display: none; }
       .mobile-view.active-view { display: block; }
+      .progress-result { flex-direction: column; }
+      .progress-result button { width: 100%; }
     }
 
   </style>
@@ -656,7 +666,9 @@
               <div class="chip" data-val="all">Все</div>
             </div>
 
-            <div class="panel mt-4" id="myCalendarPanel">
+            <button type="button" class="ghost mt-4 w-full" id="toggleCalendarBtn" aria-controls="myCalendarPanel" aria-expanded="false">Открыть мой календарь</button>
+
+            <div class="panel mt-4 hidden" id="myCalendarPanel">
               <div class="panel-header"><h3>Мой календарь</h3></div>
               <div class="panel-body" id="myCalendarList"></div>
             </div>
@@ -780,6 +792,7 @@
               <div class="counter"><strong id="coverageAny">0</strong><span>Назначено</span></div>
               <div class="counter"><strong id="coverageFull">0</strong><span>Выполнено</span></div>
               <div class="counter"><strong id="measurementsTotal">0</strong><span>Осталось</span></div>
+              <div class="counter"><strong id="progressMeasurementsTotal">0</strong><span>Замеров</span></div>
               <div class="counter"><strong id="customGroupsTotal">0</strong><span>Доб. групп</span></div>
               <div class="counter"><strong id="customItemsTotal">0</strong><span>Доб. операций</span></div>
             </div>
@@ -789,6 +802,9 @@
               <div class="chip" data-val="all">Общий прогресс</div>
             </div>
             <p class="meta-line-text mt-4" id="progressScopeNote"></p>
+
+            <h3 class="mt-4 mb-2">Фактические результаты замеров</h3>
+            <div class="problem-list" id="progressResultsList"></div>
             
             <h3 class="mt-4 mb-2">Детализация покрытия</h3>
             <div class="problem-list" id="progressIssuesList"></div>
@@ -890,7 +906,7 @@
       };
 
       const defaultState = () => ({
-        ui: { mobileView: "measure" },
+        ui: { mobileView: "measure", calendarOpen: false },
         session: { auditor: "", assigneeKey: "", assigneeName: "", date: todayIso(), site: "", comment: "" },
         employees: [],
         measurements: [],
@@ -1031,6 +1047,32 @@
       function formatDuration(seconds) {
         const t = Math.max(0, Math.floor(seconds || 0));
         return `${String(Math.floor(t / 3600)).padStart(2,"0")}:${String(Math.floor((t % 3600) / 60)).padStart(2,"0")}:${String(t % 60).padStart(2,"0")}`;
+      }
+
+      function measurementDurationSec(measurement) {
+        const seconds = Number(measurement?.durationSec);
+        if (Number.isFinite(seconds) && seconds > 0) return seconds;
+        const minutes = Number(measurement?.durationMin);
+        return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60) : 0;
+      }
+
+      function measurementTimestamp(measurement) {
+        const raw = measurement?.createdAt || measurement?.endedAt || measurement?.startedAt || "";
+        const time = raw ? new Date(raw).getTime() : 0;
+        return Number.isFinite(time) ? time : 0;
+      }
+
+      function measurementDateTimeLabel(value) {
+        if (!value) return "";
+        const date = new Date(value);
+        if (!Number.isFinite(date.getTime())) return "";
+        return date.toLocaleString("ru-RU", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
       }
 
       function hydrateState(saved) {
@@ -2076,9 +2118,17 @@
       }
 
       function renderMyCalendar() {
+        const toggleBtn = $("#toggleCalendarBtn");
         const panel = $("#myCalendarPanel");
         const list = $("#myCalendarList");
         if (!panel || !list) return;
+        const isOpen = Boolean(state.ui.calendarOpen);
+        panel.classList.toggle("hidden", !isOpen);
+        if (toggleBtn) {
+          toggleBtn.textContent = isOpen ? "Скрыть мой календарь" : "Открыть мой календарь";
+          toggleBtn.setAttribute("aria-expanded", String(isOpen));
+        }
+        if (!isOpen) return;
         const assignee = getCurrentAssignee();
         if (!assignee) {
           list.innerHTML = `<div class="empty-note"><p class="empty-note-title">Проверяющий не выбран</p><p class="empty-note-desc">Выберите себя выше, чтобы увидеть персональный календарь.</p></div>`;
@@ -2280,19 +2330,124 @@
         `).join("");
       }
 
+      function progressMeasurementsForScope(progressMode, assignments) {
+        const assignmentIds = new Set(assignments.map(a => a.id));
+        if (progressMode === "all") return state.measurements || [];
+        return (state.measurements || []).filter(m => {
+          if (state.session.assigneeKey && m.assigneeKey === state.session.assigneeKey) return true;
+          return m.assignmentId && assignmentIds.has(m.assignmentId);
+        });
+      }
+
+      function measurementGoalLabel(measurement) {
+        const key = measurement.creditGoalKey || measurement.assignmentCreditGoalKey || "";
+        if (measurement.creditGoalLabel) return measurement.creditGoalLabel;
+        if (measurement.assignmentCreditGoalLabel) return measurement.assignmentCreditGoalLabel;
+        if (key && CREDIT_GOALS[key]) return getCreditGoal(key).label;
+        return "Цель кредита не указана";
+      }
+
+      function buildProgressResultGroups(measurements) {
+        const groups = new Map();
+        measurements.forEach(measurement => {
+          const operationId = measurement.operationId || "Без группы";
+          const goalKey = measurement.creditGoalKey || measurement.assignmentCreditGoalKey || "no_goal";
+          const key = `${operationId}__${goalKey}`;
+          const operation = operationById(operationId);
+          if (!groups.has(key)) {
+            groups.set(key, {
+              key,
+              operationId,
+              title: measurement.operationTitle || operation?.title || "Группа без названия",
+              stage: measurement.stage || operation?.stage || "",
+              goalLabel: measurementGoalLabel(measurement),
+              measurements: [],
+              managers: new Map(),
+              totalSec: 0,
+              latest: null
+            });
+          }
+
+          const group = groups.get(key);
+          const managerKey = measurement.employeeId || measurement.employeeName || "";
+          if (managerKey && !group.managers.has(managerKey)) {
+            group.managers.set(managerKey, measurement.employeeName || managerKey);
+          }
+          group.measurements.push(measurement);
+          group.totalSec += measurementDurationSec(measurement);
+          if (!group.latest || measurementTimestamp(measurement) >= measurementTimestamp(group.latest)) {
+            group.latest = measurement;
+          }
+        });
+
+        return Array.from(groups.values()).map(group => {
+          const count = group.measurements.length;
+          return {
+            ...group,
+            count,
+            avgSec: count ? Math.round(group.totalSec / count) : 0,
+            managersCount: group.managers.size,
+            managerNames: Array.from(group.managers.values()),
+            latestSec: measurementDurationSec(group.latest),
+            latestTime: measurementTimestamp(group.latest)
+          };
+        }).sort((a, b) => b.latestTime - a.latestTime || a.operationId.localeCompare(b.operationId));
+      }
+
       function renderProgressTab() {
         document.querySelectorAll("#chipsProgressMode .chip").forEach(c => c.classList.toggle("active", c.dataset.val === (state.filters.progressMode || "my")));
         const progressMode = state.filters.progressMode || "my";
         const assignments = progressMode === "my" ? getAssignmentsForCurrentAssignee() : getAllAssignments().filter(a => a.assignmentType === "planned");
         const completed = assignments.filter(a => assignmentIsCompleted(a.id));
         const pendingCount = Math.max(0, assignments.length - completed.length);
+        const progressMeasurements = progressMeasurementsForScope(progressMode, assignments);
+        const resultGroups = buildProgressResultGroups(progressMeasurements);
 
         $("#coverageAny").textContent = assignments.length;
         $("#coverageFull").textContent = completed.length;
         $("#measurementsTotal").textContent = pendingCount;
+        $("#progressMeasurementsTotal").textContent = progressMeasurements.length;
         $("#customGroupsTotal").textContent = (state.customGroups || []).filter(g => !g.isArchived).length;
         $("#customItemsTotal").textContent = (state.customItems || []).filter(i => !i.isArchived).length;
-        $("#progressScopeNote").textContent = `${progressMode === "my" ? "Мой прогресс" : "Общий прогресс"}: назначено ${assignments.length}, выполнено ${completed.length}, осталось ${pendingCount}`;
+        $("#progressScopeNote").textContent = `${progressMode === "my" ? "Мой прогресс" : "Общий прогресс"}: назначено ${assignments.length}, выполнено ${completed.length}, осталось ${pendingCount}, сохранено замеров ${progressMeasurements.length}`;
+
+        $("#progressResultsList").innerHTML = resultGroups.length ? resultGroups.map(group => {
+          const latest = group.latest || {};
+          const latestDate = measurementDateTimeLabel(latest.createdAt || latest.endedAt || latest.startedAt);
+          const managers = group.managerNames.length ? group.managerNames.slice(0, 4).join(", ") : "менеджер не указан";
+          const managersTail = group.managerNames.length > 4 ? ` и еще ${group.managerNames.length - 4}` : "";
+          const selectedCount = Number(latest.selectedItemsCount ?? latest.selectedItemIds?.length ?? latest.checkedItemsDetailed?.length ?? 0);
+          const totalItems = Number(latest.operationItemsCount ?? latest.operationItemsDetailed?.length ?? 0);
+          const itemsText = totalItems ? ` · состав: ${selectedCount}/${totalItems}` : "";
+          const comment = latest.comment ? `<div class="latest-comment">Комментарий последнего замера: ${escapeHtml(latest.comment)}</div>` : "";
+          return `
+            <div class="problem-item progress-result">
+              <div class="progress-result-main">
+                <div class="meta-line mb-2">
+                  <span class="badge">${escapeHtml(group.operationId)}</span>
+                  ${group.stage ? `<span class="badge">${escapeHtml(group.stage)}</span>` : ""}
+                  <span class="badge">${escapeHtml(group.goalLabel)}</span>
+                </div>
+                <div class="problem-title">${escapeHtml(group.title)}</div>
+                <div class="problem-desc">Замеров: ${group.count} · менеджеры: ${escapeHtml(managers)}${escapeHtml(managersTail)}</div>
+                <div class="result-stats">
+                  <span class="result-stat"><strong>${formatDuration(group.latestSec)}</strong><span>последний</span></span>
+                  <span class="result-stat"><strong>${formatDuration(group.avgSec)}</strong><span>среднее</span></span>
+                  <span class="result-stat"><strong>${formatDuration(group.totalSec)}</strong><span>всего</span></span>
+                  <span class="result-stat"><strong>${group.managersCount}</strong><span>менеджеров</span></span>
+                </div>
+                <div class="problem-desc mt-2">Последний замер: ${escapeHtml(latest.employeeName || "менеджер не указан")}${latestDate ? ` · ${escapeHtml(latestDate)}` : ""}${itemsText}</div>
+                ${comment}
+              </div>
+              <button type="button" class="ghost select-op-btn" data-id="${escapeAttr(group.operationId)}">Открыть группу</button>
+            </div>
+          `;
+        }).join("") : `
+          <div class="empty-note">
+            <p class="empty-note-title">Фактических замеров пока нет</p>
+            <p class="empty-note-desc">${progressMode === "my" && !state.session.assigneeKey ? "Выберите проверяющего в разделе «Еще», чтобы увидеть его сохраненные результаты." : "После сохранения замера здесь появятся время, менеджеры и статистика по DI-группам."}</p>
+          </div>
+        `;
 
         const pending = assignments.filter(a => !assignmentIsCompleted(a.id)).slice(0, 50);
         $("#progressIssuesList").innerHTML = pending.length ? pending.map(a => `
@@ -2532,6 +2687,14 @@
         if (e.target.closest(".nav-to-more")) {
           recordAction("view_switched", { from: state.ui.mobileView, to: "more" });
           setMobileView("more");
+        }
+
+        const toggleCalendar = e.target.closest("#toggleCalendarBtn");
+        if (toggleCalendar) {
+          state.ui.calendarOpen = !state.ui.calendarOpen;
+          recordAction("calendar_toggled", { open: state.ui.calendarOpen });
+          renderOperationsTab();
+          return;
         }
 
         const checklistToggle = e.target.closest(".checklist-item-cb");
