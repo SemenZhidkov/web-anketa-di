@@ -329,6 +329,9 @@
     .result-stat { display: inline-flex; align-items: baseline; gap: 5px; border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--text-soft); padding: 5px 8px; font-size: 12px; font-weight: 750; }
     .result-stat strong { color: var(--text); font-size: 13px; }
     .latest-comment { margin-top: 8px; padding-left: 10px; border-left: 3px solid var(--primary-border); color: var(--text-soft); font-size: 12px; line-height: 1.4; }
+    .analysis-toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+    .analysis-toolbar button { flex: 1 1 160px; }
+    .analysis-section-note { margin-top: 6px; font-size: 12px; color: var(--text-soft); line-height: 1.4; }
 
     /* Checklist */
     .items-list { border: 0; border-radius: 0; overflow: visible; display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -381,7 +384,7 @@
     /* Bottom Navigation */
     .bottom-nav {
       position: fixed; left: 12px; right: 12px; bottom: 10px; height: auto; min-height: 64px;
-      display: none; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 6px;
+      display: none; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 6px;
       border: 1px solid var(--line); border-radius: 22px;
       background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       box-shadow: var(--shadow-lg); z-index: 100;
@@ -812,6 +815,73 @@
         </div>
       </div>
 
+      <!-- Пост-анализ -->
+      <div class="mobile-view view-analysis" id="view-analysis">
+        <div class="panel">
+          <div class="panel-header"><h2>Пост-анализ</h2></div>
+          <div class="panel-body">
+            <div class="counter-grid">
+              <div class="counter"><strong id="analysisFilesCount">0</strong><span>Файлов</span></div>
+              <div class="counter"><strong id="analysisMeasurementsCount">0</strong><span>Замеров</span></div>
+              <div class="counter"><strong id="analysisAuditorsCount">0</strong><span>Проверяющих</span></div>
+              <div class="counter"><strong id="analysisEmployeesCount">0</strong><span>Менеджеров</span></div>
+              <div class="counter"><strong id="analysisGroupsCount">0</strong><span>DI-групп</span></div>
+              <div class="counter"><strong id="analysisAvgDuration">00:00:00</strong><span>Среднее</span></div>
+            </div>
+
+            <div class="analysis-toolbar mt-4">
+              <button type="button" class="primary" id="importAnalysisBtn">Импорт файлов для анализа</button>
+              <button type="button" id="exportAnalysisJsonBtn">Экспорт агрегата JSON</button>
+              <button type="button" id="exportAnalysisMeasurementsCsvBtn">CSV замеров</button>
+              <button type="button" id="exportAnalysisGroupsCsvBtn">CSV DI-групп</button>
+              <button type="button" id="exportAnalysisItemsCsvBtn">CSV операций</button>
+              <button type="button" id="exportAnalysisCommentsCsvBtn">CSV комментариев</button>
+              <button type="button" class="danger" id="clearAnalysisBtn">Очистить анализ</button>
+            </div>
+            <input type="file" id="importAnalysisInput" accept="application/json,.json" multiple class="hidden">
+            <p class="meta-line-text mt-4" id="analysisImportNote"></p>
+
+            <div class="muted-bold mt-4">Фильтры анализа:</div>
+            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+              <label>Проверяющий <select id="analysisAuditorFilter"></select></label>
+              <label>Менеджер <select id="analysisEmployeeFilter"></select></label>
+              <label>DI-группа <select id="analysisOperationFilter"></select></label>
+              <label>Цель кредита <select id="analysisGoalFilter"></select></label>
+              <label>Источник <select id="analysisSourceFilter">
+                <option value="all">Все</option>
+                <option value="base">Базовые</option>
+                <option value="custom">Добавленные</option>
+              </select></label>
+              <label>Дата с <input type="date" id="analysisDateFrom"></label>
+              <label>Дата по <input type="date" id="analysisDateTo"></label>
+              <label>Поиск <input type="search" id="analysisQueryFilter" placeholder="Группа, менеджер, комментарий..."></label>
+            </div>
+            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+              <label class="check-option"><input type="checkbox" id="analysisCommentsOnly"> Только с комментариями</label>
+              <label class="check-option"><input type="checkbox" id="analysisSelectedOnly"> Только с выбранными операциями</label>
+            </div>
+
+            <h3 class="mt-4 mb-2">Общая сводка</h3>
+            <div class="problem-list" id="analysisSummaryList"></div>
+
+            <h3 class="mt-4 mb-2">По DI-группам</h3>
+            <div class="problem-list" id="analysisGroupsList"></div>
+
+            <h3 class="mt-4 mb-2">По менеджерам</h3>
+            <div class="problem-list" id="analysisManagersList"></div>
+
+            <h3 class="mt-4 mb-2">По проверяющим</h3>
+            <div class="problem-list" id="analysisAuditorsList"></div>
+
+            <h3 class="mt-4 mb-2">Внутренние операции / галочки</h3>
+            <div class="problem-list" id="analysisItemsList"></div>
+
+            <h3 class="mt-4 mb-2">Комментарии</h3>
+            <div class="problem-list" id="analysisCommentsList"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Еще -->
       <div class="mobile-view view-more" id="view-more">
         <div class="panel">
@@ -863,6 +933,10 @@
       <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 12h2v5H7zm4-3h2v8h-2zm4-4h2v12h-2z"/></svg>
       Прогресс
     </button>
+    <button class="nav-item switch-view" data-target="analysis">
+      <svg viewBox="0 0 24 24"><path d="M4 19h16v2H4zM6 11h3v6H6zm5-8h3v14h-3zm5 5h3v9h-3z"/></svg>
+      Анализ
+    </button>
     <button class="nav-item switch-view" data-target="more">
       <svg viewBox="0 0 24 24"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
       Еще
@@ -905,6 +979,28 @@
         return (name || "").replace(/Аф{2}енди/g, "Афенди");
       };
 
+      function defaultAnalysisState() {
+        return {
+          importedFiles: [],
+          sessions: [],
+          measurements: [],
+          itemSelections: [],
+          actions: [],
+          filters: {
+            auditor: "all",
+            employee: "all",
+            operation: "all",
+            goal: "all",
+            source: "all",
+            dateFrom: "",
+            dateTo: "",
+            commentsOnly: false,
+            selectedOnly: false,
+            query: ""
+          }
+        };
+      }
+
       const defaultState = () => ({
         ui: { mobileView: "measure", calendarOpen: false },
         session: { auditor: "", assigneeKey: "", assigneeName: "", date: todayIso(), site: "", comment: "" },
@@ -915,6 +1011,7 @@
         customAssignments: [],
         operationItemSelections: {},
         actionLog: [],
+        analysis: defaultAnalysisState(),
         measurementCommentDraft: "",
         selectedEmployeeId: "",
         selectedOperationId: operations[0] ? operations[0].id : "",
@@ -1091,6 +1188,7 @@
           customAssignments: Array.isArray(saved.customAssignments) ? saved.customAssignments.map(migrateCustomAssignment) : [],
           operationItemSelections: saved.operationItemSelections && typeof saved.operationItemSelections === "object" ? saved.operationItemSelections : {},
           actionLog: Array.isArray(saved.actionLog) ? saved.actionLog : [],
+          analysis: hydrateAnalysis(saved.analysis),
           measurementCommentDraft: typeof saved.measurementCommentDraft === "string" ? saved.measurementCommentDraft : "",
           selectedAssignmentId: saved.selectedAssignmentId || ""
         };
@@ -1106,11 +1204,35 @@
         return next;
       }
 
+      function hydrateAnalysis(saved) {
+        const base = defaultAnalysisState();
+        if (!saved || typeof saved !== "object") return base;
+        const filters = { ...base.filters, ...(saved.filters || {}) };
+        if (!["all", "base", "custom"].includes(filters.source)) filters.source = "all";
+        return {
+          ...base,
+          importedFiles: Array.isArray(saved.importedFiles) ? saved.importedFiles : [],
+          sessions: Array.isArray(saved.sessions) ? saved.sessions : [],
+          measurements: Array.isArray(saved.measurements) ? saved.measurements.map(migrateMeasurement) : [],
+          itemSelections: Array.isArray(saved.itemSelections) ? saved.itemSelections : [],
+          actions: Array.isArray(saved.actions) ? saved.actions : [],
+          filters
+        };
+      }
+
       function normalizeStoredAssigneeNames(next) {
         next.session.auditor = normalizeAssigneeName(next.session.auditor);
         next.session.assigneeName = normalizeAssigneeName(next.session.assigneeName);
         next.measurements.forEach(m => {
           if (m && typeof m === "object") m.assigneeName = normalizeAssigneeName(m.assigneeName);
+        });
+        next.analysis.measurements.forEach(m => {
+          if (!m || typeof m !== "object") return;
+          m.assigneeName = normalizeAssigneeName(m.assigneeName);
+          m.analysisAuditorName = normalizeAssigneeName(m.analysisAuditorName);
+        });
+        next.analysis.sessions.forEach(session => {
+          if (session && typeof session === "object") session.auditor = normalizeAssigneeName(session.auditor);
         });
         next.customAssignments.forEach(a => {
           if (!a || typeof a !== "object") return;
@@ -1924,6 +2046,7 @@
         renderOperationsTab();
         renderEmployeesTab();
         renderProgressTab();
+        renderAnalysisTab();
         renderMoreTab();
         renderHeader();
         updateTimerDisplay();
@@ -2394,6 +2517,322 @@
         }).sort((a, b) => b.latestTime - a.latestTime || a.operationId.localeCompare(b.operationId));
       }
 
+      function durationStats(measurements) {
+        const durations = measurements.map(measurementDurationSec).filter(sec => sec > 0).sort((a, b) => a - b);
+        const totalSec = durations.reduce((sum, sec) => sum + sec, 0);
+        const percentile = (p) => {
+          if (!durations.length) return 0;
+          const index = (durations.length - 1) * p;
+          const low = Math.floor(index);
+          const high = Math.ceil(index);
+          if (low === high) return durations[low];
+          return Math.round(durations[low] + (durations[high] - durations[low]) * (index - low));
+        };
+        return {
+          count: measurements.length,
+          totalSec,
+          avgSec: durations.length ? Math.round(totalSec / durations.length) : 0,
+          medianSec: percentile(0.5),
+          minSec: durations[0] || 0,
+          maxSec: durations[durations.length - 1] || 0,
+          p75Sec: percentile(0.75),
+          p90Sec: percentile(0.9)
+        };
+      }
+
+      function analysisSourceFromPayload(payload, file) {
+        const root = payload?.state && typeof payload.state === "object" ? payload.state : payload;
+        const session = root?.session || payload?.session || {};
+        const measurements = Array.isArray(root?.measurements) ? root.measurements : [];
+        const first = measurements[0] || {};
+        const last = measurements[measurements.length - 1] || {};
+        const auditor = normalizeAssigneeName(session.auditor || session.assigneeName || first.sessionSnapshot?.auditor || first.sessionSnapshot?.assigneeName || first.assigneeName || "Не указан");
+        const sessionDate = session.date || first.sessionSnapshot?.date || first.assignmentDate || "";
+        const exportedAt = payload?.exportedAt || root?.exportedAt || "";
+        const stableSeed = [
+          payload?.version || "",
+          exportedAt,
+          auditor,
+          sessionDate,
+          measurements.length,
+          first.id || first.startedAt || "",
+          last.id || last.endedAt || ""
+        ].join("|");
+        const fallbackSeed = `${file.name}|${file.size || 0}|${measurements.length}`;
+        const sourceId = sanitizeFilenamePart(stableSeed.replace(/\|+/g, "_")) || sanitizeFilenamePart(fallbackSeed);
+        return {
+          sourceId,
+          fileName: file.name,
+          fileSize: file.size || 0,
+          auditor,
+          assigneeKey: session.assigneeKey || "",
+          sessionDate,
+          site: session.site || "",
+          exportedAt,
+          version: payload?.version || ""
+        };
+      }
+
+      function analysisMeasurementKey(measurement, source) {
+        if (measurement.id) return `${source.sourceId}::${measurement.id}`;
+        return [
+          "fingerprint",
+          measurement.operationId || "",
+          measurement.employeeId || measurement.employeeName || "",
+          measurement.startedAt || "",
+          measurement.endedAt || "",
+          measurementDurationSec(measurement),
+          measurement.assignmentId || ""
+        ].join("|");
+      }
+
+      function analysisSourceType(measurement) {
+        if (measurement.isCustomGroup || measurement.operationSourceType === "custom_group") return "custom";
+        return "base";
+      }
+
+      function analysisGoalKey(measurement) {
+        return measurement.creditGoalKey || measurement.assignmentCreditGoalKey || "no_goal";
+      }
+
+      function analysisGoalLabel(measurement) {
+        const key = analysisGoalKey(measurement);
+        if (measurement.creditGoalLabel) return measurement.creditGoalLabel;
+        if (measurement.assignmentCreditGoalLabel) return measurement.assignmentCreditGoalLabel;
+        if (CREDIT_GOALS[key]) return getCreditGoal(key).label;
+        return "Цель кредита не указана";
+      }
+
+      function selectedDetailsFromMeasurement(measurement) {
+        const byId = new Map();
+        const add = (item, selected = true) => {
+          if (!item) return;
+          const id = String(item.id || item.text || "").trim();
+          const text = String(item.text || item.name || item).trim();
+          if (!id && !text) return;
+          const key = id || text;
+          byId.set(key, {
+            id: id || key,
+            text,
+            itemNumber: item.itemNumber ?? item.itemIndex ?? "",
+            dealTag: item.dealTag || "",
+            sourceType: item.sourceType || "base_item",
+            parentOperationId: item.parentOperationId || measurement.operationId || "",
+            selected: Boolean(selected)
+          });
+        };
+
+        (measurement.selectedItemsDetailed || []).forEach(item => add(item, true));
+        (measurement.operationItemsDetailed || []).filter(item => item.selected).forEach(item => add(item, true));
+        (measurement.checkedItemsDetailed || []).forEach(item => add(item, true));
+        if (!byId.size && Array.isArray(measurement.checkedItems)) {
+          measurement.checkedItems.forEach((text, index) => add({ id: `${measurement.operationId}-checked-${index + 1}`, text }, true));
+        }
+        return Array.from(byId.values());
+      }
+
+      function allDetailsFromMeasurement(measurement) {
+        if (Array.isArray(measurement.operationItemsDetailed) && measurement.operationItemsDetailed.length) {
+          return measurement.operationItemsDetailed;
+        }
+        return selectedDetailsFromMeasurement(measurement);
+      }
+
+      function selectedItemsCountForMeasurement(measurement) {
+        if (Number.isFinite(Number(measurement.selectedItemsCount))) return Number(measurement.selectedItemsCount);
+        return selectedDetailsFromMeasurement(measurement).length;
+      }
+
+      function analysisNormalizeMeasurement(measurement, source) {
+        const migrated = migrateMeasurement(measurement) || {};
+        const normalized = {
+          ...migrated,
+          analysisKey: analysisMeasurementKey(migrated, source),
+          analysisSourceId: source.sourceId,
+          analysisFileName: source.fileName,
+          analysisImportedAt: isoNow(),
+          analysisSessionDate: source.sessionDate,
+          analysisAuditorName: source.auditor,
+          analysisAuditorKey: source.assigneeKey,
+          analysisSourceType: analysisSourceType(migrated)
+        };
+        normalized.assigneeName = normalizeAssigneeName(normalized.assigneeName);
+        return normalized;
+      }
+
+      function analysisItemRowsForMeasurement(measurement) {
+        return selectedDetailsFromMeasurement(measurement).map(item => ({
+          id: `${measurement.analysisKey}::${item.id || item.text}`,
+          measurementKey: measurement.analysisKey,
+          measurementId: measurement.id || "",
+          sourceId: measurement.analysisSourceId,
+          fileName: measurement.analysisFileName,
+          auditorName: measurement.analysisAuditorName,
+          operationId: measurement.operationId || "",
+          operationTitle: measurement.operationTitle || "",
+          creditGoalKey: analysisGoalKey(measurement),
+          creditGoalLabel: analysisGoalLabel(measurement),
+          employeeName: measurement.employeeName || "",
+          durationSec: measurementDurationSec(measurement),
+          itemId: item.id || "",
+          itemNumber: item.itemNumber ?? "",
+          itemText: item.text || "",
+          itemSourceType: item.sourceType || "base_item",
+          dealTag: item.dealTag || "",
+          selected: true
+        }));
+      }
+
+      function analysisFilteredMeasurements() {
+        const analysis = state.analysis || defaultAnalysisState();
+        const filters = analysis.filters || defaultAnalysisState().filters;
+        const query = normalizeText(filters.query || "");
+        const dateFrom = filters.dateFrom ? new Date(`${filters.dateFrom}T00:00:00`).getTime() : 0;
+        const dateTo = filters.dateTo ? new Date(`${filters.dateTo}T23:59:59`).getTime() : 0;
+        return (analysis.measurements || []).filter(measurement => {
+          if (filters.auditor && filters.auditor !== "all" && measurement.analysisAuditorName !== filters.auditor) return false;
+          if (filters.employee && filters.employee !== "all" && (measurement.employeeName || "Не указан") !== filters.employee) return false;
+          if (filters.operation && filters.operation !== "all" && measurement.operationId !== filters.operation) return false;
+          if (filters.goal && filters.goal !== "all" && analysisGoalKey(measurement) !== filters.goal) return false;
+          if (filters.source && filters.source !== "all" && measurement.analysisSourceType !== filters.source) return false;
+          if (filters.commentsOnly && !String(measurement.comment || "").trim()) return false;
+          if (filters.selectedOnly && selectedItemsCountForMeasurement(measurement) <= 0) return false;
+          const time = measurementTimestamp(measurement);
+          if (dateFrom && time && time < dateFrom) return false;
+          if (dateTo && time && time > dateTo) return false;
+          if (query) {
+            const itemText = selectedDetailsFromMeasurement(measurement).map(item => item.text).join(" ");
+            const haystack = normalizeText([
+              measurement.operationId,
+              measurement.operationTitle,
+              measurement.employeeName,
+              measurement.analysisAuditorName,
+              measurement.creditGoalLabel,
+              measurement.comment,
+              itemText
+            ].join(" "));
+            if (!haystack.includes(query)) return false;
+          }
+          return true;
+        });
+      }
+
+      function buildAnalysisAggregate(measurements = analysisFilteredMeasurements()) {
+        const grouped = (keyFn) => {
+          const map = new Map();
+          measurements.forEach(measurement => {
+            const key = keyFn(measurement);
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(measurement);
+          });
+          return map;
+        };
+
+        const byGroup = Array.from(grouped(m => `${m.operationId || "Без группы"}__${analysisGoalKey(m)}`).entries()).map(([key, rows]) => {
+          const first = rows[0] || {};
+          const stats = durationStats(rows);
+          const managers = new Set(rows.map(m => m.employeeName || "Не указан"));
+          const auditors = new Set(rows.map(m => m.analysisAuditorName || "Не указан"));
+          const planned = Number(first.plannedMinutes ?? first.assignmentTimingMinutes ?? 0);
+          return {
+            key,
+            operationId: first.operationId || "Без группы",
+            operationTitle: first.operationTitle || operationById(first.operationId)?.title || "Группа без названия",
+            creditGoalKey: analysisGoalKey(first),
+            creditGoalLabel: analysisGoalLabel(first),
+            sourceType: first.analysisSourceType || "base",
+            plannedMinutes: planned || "",
+            deviationAvgMin: planned ? Number((stats.avgSec / 60 - planned).toFixed(2)) : "",
+            managersCount: managers.size,
+            auditorsCount: auditors.size,
+            managers: Array.from(managers),
+            auditors: Array.from(auditors),
+            ...stats
+          };
+        }).sort((a, b) => a.operationId.localeCompare(b.operationId) || a.creditGoalLabel.localeCompare(b.creditGoalLabel));
+
+        const byManager = Array.from(grouped(m => m.employeeName || "Не указан").entries()).map(([employeeName, rows]) => {
+          const stats = durationStats(rows);
+          const groups = new Set(rows.map(m => m.operationId || "Без группы"));
+          const slowest = [...rows].sort((a, b) => measurementDurationSec(b) - measurementDurationSec(a)).slice(0, 3);
+          return { employeeName, groupsCount: groups.size, groups: Array.from(groups), slowest, ...stats };
+        }).sort((a, b) => b.count - a.count || a.employeeName.localeCompare(b.employeeName));
+
+        const byAuditor = Array.from(grouped(m => m.analysisAuditorName || "Не указан").entries()).map(([auditorName, rows]) => {
+          const stats = durationStats(rows);
+          const groups = new Set(rows.map(m => m.operationId || "Без группы"));
+          const employees = new Set(rows.map(m => m.employeeName || "Не указан"));
+          const files = new Set(rows.map(m => m.analysisFileName || "без файла"));
+          return { auditorName, filesCount: files.size, groupsCount: groups.size, employeesCount: employees.size, groups: Array.from(groups), ...stats };
+        }).sort((a, b) => b.count - a.count || a.auditorName.localeCompare(b.auditorName));
+
+        const itemMap = new Map();
+        measurements.forEach(measurement => {
+          const selected = new Set(selectedDetailsFromMeasurement(measurement).map(item => item.id || item.text));
+          allDetailsFromMeasurement(measurement).forEach((item, index) => {
+            const itemId = item.id || item.text || `${measurement.operationId}-item-${index + 1}`;
+            const key = `${measurement.operationId || ""}__${itemId}`;
+            if (!itemMap.has(key)) {
+              itemMap.set(key, {
+                key,
+                itemId,
+                itemText: item.text || "",
+                itemNumber: item.itemNumber ?? item.itemIndex ?? "",
+                operationId: measurement.operationId || "",
+                operationTitle: measurement.operationTitle || "",
+                sourceType: item.sourceType || "base_item",
+                selectedCount: 0,
+                availableCount: 0,
+                selectedDurationSec: 0,
+                auditors: new Set(),
+                managers: new Set()
+              });
+            }
+            const stat = itemMap.get(key);
+            const isSelected = selected.has(itemId) || item.selected;
+            stat.availableCount += 1;
+            stat.auditors.add(measurement.analysisAuditorName || "Не указан");
+            stat.managers.add(measurement.employeeName || "Не указан");
+            if (isSelected) {
+              stat.selectedCount += 1;
+              stat.selectedDurationSec += measurementDurationSec(measurement);
+            }
+          });
+        });
+        const items = Array.from(itemMap.values()).map(item => ({
+          ...item,
+          auditorsCount: item.auditors.size,
+          managersCount: item.managers.size,
+          selectionRate: item.availableCount ? Number((item.selectedCount / item.availableCount * 100).toFixed(1)) : 0,
+          avgSelectedSec: item.selectedCount ? Math.round(item.selectedDurationSec / item.selectedCount) : 0,
+          auditors: Array.from(item.auditors),
+          managers: Array.from(item.managers)
+        })).sort((a, b) => b.selectedCount - a.selectedCount || b.selectionRate - a.selectionRate || a.operationId.localeCompare(b.operationId));
+
+        const comments = measurements
+          .filter(m => String(m.comment || "").trim())
+          .sort((a, b) => measurementTimestamp(b) - measurementTimestamp(a));
+
+        const summaryStats = durationStats(measurements);
+        return {
+          generatedAt: isoNow(),
+          filters: { ...(state.analysis?.filters || {}) },
+          summary: {
+            ...summaryStats,
+            filesCount: new Set(measurements.map(m => m.analysisSourceId || m.analysisFileName || "")).size,
+            auditorsCount: new Set(measurements.map(m => m.analysisAuditorName || "Не указан")).size,
+            employeesCount: new Set(measurements.map(m => m.employeeName || "Не указан")).size,
+            groupsCount: new Set(measurements.map(m => m.operationId || "Без группы")).size
+          },
+          groups: byGroup,
+          managers: byManager,
+          auditors: byAuditor,
+          items,
+          comments,
+          measurements
+        };
+      }
+
       function renderProgressTab() {
         document.querySelectorAll("#chipsProgressMode .chip").forEach(c => c.classList.toggle("active", c.dataset.val === (state.filters.progressMode || "my")));
         const progressMode = state.filters.progressMode || "my";
@@ -2464,6 +2903,176 @@
             <p class="empty-note-desc">В выбранном режиме прогресса нет задач к выполнению.</p>
           </div>
         `;
+      }
+
+      function renderAnalysisSelect(selectId, options, value, emptyLabel = "Все") {
+        const select = $(selectId);
+        if (!select) return;
+        const seen = new Set();
+        const cleanOptions = options.filter(option => {
+          const key = String(option.value || "");
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).sort((a, b) => String(a.label).localeCompare(String(b.label), "ru"));
+        select.innerHTML = `<option value="all">${escapeHtml(emptyLabel)}</option>` + cleanOptions.map(option =>
+          `<option value="${escapeAttr(option.value)}">${escapeHtml(option.label)}</option>`
+        ).join("");
+        const nextValue = value || "all";
+        select.value = Array.from(select.options).some(option => option.value === nextValue) ? nextValue : "all";
+      }
+
+      function renderAnalysisCardEmpty(title, desc) {
+        return `
+          <div class="empty-note">
+            <p class="empty-note-title">${escapeHtml(title)}</p>
+            <p class="empty-note-desc">${escapeHtml(desc)}</p>
+          </div>
+        `;
+      }
+
+      function renderAnalysisTab() {
+        if (!state.analysis) state.analysis = defaultAnalysisState();
+        const analysis = state.analysis;
+        const filters = analysis.filters || defaultAnalysisState().filters;
+        const all = analysis.measurements || [];
+        const filtered = analysisFilteredMeasurements();
+        const aggregate = buildAnalysisAggregate(filtered);
+        const summary = aggregate.summary;
+
+        renderAnalysisSelect("#analysisAuditorFilter", all.map(m => ({ value: m.analysisAuditorName || "Не указан", label: m.analysisAuditorName || "Не указан" })), filters.auditor, "Все проверяющие");
+        renderAnalysisSelect("#analysisEmployeeFilter", all.map(m => ({ value: m.employeeName || "Не указан", label: m.employeeName || "Не указан" })), filters.employee, "Все менеджеры");
+        renderAnalysisSelect("#analysisOperationFilter", all.map(m => ({ value: m.operationId || "Без группы", label: `${m.operationId || "Без группы"} · ${m.operationTitle || "без названия"}` })), filters.operation, "Все DI-группы");
+        renderAnalysisSelect("#analysisGoalFilter", all.map(m => ({ value: analysisGoalKey(m), label: analysisGoalLabel(m) })), filters.goal, "Все цели");
+
+        $("#analysisSourceFilter").value = filters.source || "all";
+        $("#analysisDateFrom").value = filters.dateFrom || "";
+        $("#analysisDateTo").value = filters.dateTo || "";
+        $("#analysisQueryFilter").value = filters.query || "";
+        $("#analysisCommentsOnly").checked = Boolean(filters.commentsOnly);
+        $("#analysisSelectedOnly").checked = Boolean(filters.selectedOnly);
+
+        $("#analysisFilesCount").textContent = (analysis.importedFiles || []).length;
+        $("#analysisMeasurementsCount").textContent = filtered.length;
+        $("#analysisAuditorsCount").textContent = summary.auditorsCount;
+        $("#analysisEmployeesCount").textContent = summary.employeesCount;
+        $("#analysisGroupsCount").textContent = summary.groupsCount;
+        $("#analysisAvgDuration").textContent = formatDuration(summary.avgSec);
+        $("#analysisImportNote").textContent = all.length
+          ? `В аналитической базе ${all.length} замеров из ${(analysis.importedFiles || []).length} файлов. После фильтров отображается ${filtered.length} замеров.`
+          : "Загрузите один или несколько JSON-файлов сессий коллег, чтобы собрать общую динамику.";
+        const latestImportedFiles = (analysis.importedFiles || [])
+          .slice(-5)
+          .reverse()
+          .map(file => `${file.fileName} (${file.auditor || "не указан"}, +${file.addedMeasurements || 0})`)
+          .join("; ");
+
+        $("#analysisSummaryList").innerHTML = filtered.length ? `
+          <div class="problem-item progress-result">
+            <div class="progress-result-main">
+              <div class="problem-title">Сводка по текущим фильтрам</div>
+              <div class="problem-desc">Файлов: ${summary.filesCount} · проверяющих: ${summary.auditorsCount} · менеджеров: ${summary.employeesCount} · DI-групп: ${summary.groupsCount}</div>
+              <div class="result-stats">
+                <span class="result-stat"><strong>${summary.count}</strong><span>замеров</span></span>
+                <span class="result-stat"><strong>${formatDuration(summary.totalSec)}</strong><span>всего</span></span>
+                <span class="result-stat"><strong>${formatDuration(summary.avgSec)}</strong><span>среднее</span></span>
+                <span class="result-stat"><strong>${formatDuration(summary.medianSec)}</strong><span>медиана</span></span>
+                <span class="result-stat"><strong>${formatDuration(summary.p75Sec)}</strong><span>p75</span></span>
+                <span class="result-stat"><strong>${formatDuration(summary.p90Sec)}</strong><span>p90</span></span>
+                <span class="result-stat"><strong>${formatDuration(summary.minSec)} / ${formatDuration(summary.maxSec)}</strong><span>min/max</span></span>
+              </div>
+              ${latestImportedFiles ? `<div class="analysis-section-note">Последние импортированные файлы: ${escapeHtml(latestImportedFiles)}</div>` : ""}
+            </div>
+          </div>
+        ` : renderAnalysisCardEmpty("Нет данных для анализа", "Импортируйте JSON-файлы или смягчите текущие фильтры.");
+
+        $("#analysisGroupsList").innerHTML = aggregate.groups.length ? aggregate.groups.map(group => `
+          <div class="problem-item progress-result">
+            <div class="progress-result-main">
+              <div class="meta-line mb-2">
+                <span class="badge">${escapeHtml(group.operationId)}</span>
+                <span class="badge">${escapeHtml(group.creditGoalLabel)}</span>
+                <span class="badge">${group.sourceType === "custom" ? "Добавленная" : "Базовая"}</span>
+              </div>
+              <div class="problem-title">${escapeHtml(group.operationTitle)}</div>
+              <div class="problem-desc">Проверяющих: ${group.auditorsCount} · менеджеров: ${group.managersCount}${group.plannedMinutes ? ` · план: ${group.plannedMinutes} мин · откл. ср.: ${group.deviationAvgMin} мин` : ""}</div>
+              <div class="result-stats">
+                <span class="result-stat"><strong>${group.count}</strong><span>замеров</span></span>
+                <span class="result-stat"><strong>${formatDuration(group.avgSec)}</strong><span>среднее</span></span>
+                <span class="result-stat"><strong>${formatDuration(group.medianSec)}</strong><span>медиана</span></span>
+                <span class="result-stat"><strong>${formatDuration(group.p75Sec)}</strong><span>p75</span></span>
+                <span class="result-stat"><strong>${formatDuration(group.p90Sec)}</strong><span>p90</span></span>
+                <span class="result-stat"><strong>${formatDuration(group.minSec)} / ${formatDuration(group.maxSec)}</strong><span>min/max</span></span>
+              </div>
+              <div class="analysis-section-note">Менеджеры: ${escapeHtml(group.managers.slice(0, 5).join(", ") || "не указаны")}${group.managers.length > 5 ? ` и еще ${group.managers.length - 5}` : ""}</div>
+            </div>
+            <button type="button" class="ghost select-op-btn" data-id="${escapeAttr(group.operationId)}">Открыть</button>
+          </div>
+        `).join("") : renderAnalysisCardEmpty("DI-группы не найдены", "По текущим фильтрам нет замеров для группировки.");
+
+        $("#analysisManagersList").innerHTML = aggregate.managers.length ? aggregate.managers.map(manager => `
+          <div class="problem-item progress-result">
+            <div class="progress-result-main">
+              <div class="problem-title">${escapeHtml(manager.employeeName)}</div>
+              <div class="problem-desc">DI-групп: ${manager.groupsCount} · самый длинный замер: ${formatDuration(manager.maxSec)}</div>
+              <div class="result-stats">
+                <span class="result-stat"><strong>${manager.count}</strong><span>замеров</span></span>
+                <span class="result-stat"><strong>${formatDuration(manager.avgSec)}</strong><span>среднее</span></span>
+                <span class="result-stat"><strong>${formatDuration(manager.medianSec)}</strong><span>медиана</span></span>
+                <span class="result-stat"><strong>${formatDuration(manager.p90Sec)}</strong><span>p90</span></span>
+              </div>
+              <div class="analysis-section-note">Медленные группы: ${escapeHtml(manager.slowest.map(m => `${m.operationId} ${formatDuration(measurementDurationSec(m))}`).join(", ") || "нет")}</div>
+            </div>
+          </div>
+        `).join("") : renderAnalysisCardEmpty("Менеджеры не найдены", "По текущим фильтрам нет данных по менеджерам.");
+
+        $("#analysisAuditorsList").innerHTML = aggregate.auditors.length ? aggregate.auditors.map(auditor => `
+          <div class="problem-item progress-result">
+            <div class="progress-result-main">
+              <div class="problem-title">${escapeHtml(auditor.auditorName)}</div>
+              <div class="problem-desc">Файлов: ${auditor.filesCount} · DI-групп: ${auditor.groupsCount} · менеджеров: ${auditor.employeesCount}</div>
+              <div class="result-stats">
+                <span class="result-stat"><strong>${auditor.count}</strong><span>замеров</span></span>
+                <span class="result-stat"><strong>${formatDuration(auditor.totalSec)}</strong><span>всего</span></span>
+                <span class="result-stat"><strong>${formatDuration(auditor.avgSec)}</strong><span>среднее</span></span>
+                <span class="result-stat"><strong>${formatDuration(auditor.p90Sec)}</strong><span>p90</span></span>
+              </div>
+              <div class="analysis-section-note">Покрытые группы: ${escapeHtml(auditor.groups.slice(0, 8).join(", ") || "нет")}${auditor.groups.length > 8 ? ` и еще ${auditor.groups.length - 8}` : ""}</div>
+            </div>
+          </div>
+        `).join("") : renderAnalysisCardEmpty("Проверяющие не найдены", "По текущим фильтрам нет данных по проверяющим.");
+
+        $("#analysisItemsList").innerHTML = aggregate.items.length ? aggregate.items.map(item => `
+          <div class="problem-item progress-result">
+            <div class="progress-result-main">
+              <div class="meta-line mb-2"><span class="badge">${escapeHtml(item.operationId)}</span><span class="badge">${escapeHtml(item.sourceType)}</span></div>
+              <div class="problem-title">${escapeHtml(item.itemText || item.itemId)}</div>
+              <div class="problem-desc">${escapeHtml(item.operationTitle || "")}</div>
+              <div class="result-stats">
+                <span class="result-stat"><strong>${item.selectedCount}/${item.availableCount}</strong><span>выбрано</span></span>
+                <span class="result-stat"><strong>${item.selectionRate}%</strong><span>частота</span></span>
+                <span class="result-stat"><strong>${formatDuration(item.avgSelectedSec)}</strong><span>ср. время замера</span></span>
+                <span class="result-stat"><strong>${item.managersCount}</strong><span>менеджеров</span></span>
+                <span class="result-stat"><strong>${item.auditorsCount}</strong><span>проверяющих</span></span>
+              </div>
+            </div>
+          </div>
+        `).join("") : renderAnalysisCardEmpty("Операции внутри групп не найдены", "По текущим фильтрам нет детализации состава операции.");
+
+        $("#analysisCommentsList").innerHTML = aggregate.comments.length ? aggregate.comments.map(measurement => `
+          <div class="problem-item progress-result">
+            <div class="progress-result-main">
+              <div class="meta-line mb-2">
+                <span class="badge">${escapeHtml(measurement.operationId || "")}</span>
+                <span class="badge">${escapeHtml(measurement.analysisAuditorName || "Не указан")}</span>
+                <span class="badge">${formatDuration(measurementDurationSec(measurement))}</span>
+              </div>
+              <div class="problem-title">${escapeHtml(measurement.operationTitle || "Группа без названия")}</div>
+              <div class="problem-desc">${escapeHtml(measurement.employeeName || "менеджер не указан")} · ${escapeHtml(measurementDateTimeLabel(measurement.createdAt || measurement.endedAt || measurement.startedAt))}</div>
+              <div class="latest-comment">${escapeHtml(measurement.comment || "")}</div>
+            </div>
+          </div>
+        `).join("") : renderAnalysisCardEmpty("Комментариев нет", "По текущим фильтрам нет замеров с комментариями.");
       }
 
       function renderMoreTab() {
@@ -2894,6 +3503,25 @@
 
       $("#sessionAssignee").onchange = (e) => applyAssigneeSelection(e.target.value);
 
+      function updateAnalysisFilter(field, value) {
+        if (!state.analysis) state.analysis = defaultAnalysisState();
+        const previousValue = state.analysis.filters[field];
+        state.analysis.filters[field] = value;
+        recordAction("analysis_filter_updated", { field, previousValue, value });
+        renderAnalysisTab();
+      }
+
+      $("#analysisAuditorFilter").onchange = e => updateAnalysisFilter("auditor", e.target.value);
+      $("#analysisEmployeeFilter").onchange = e => updateAnalysisFilter("employee", e.target.value);
+      $("#analysisOperationFilter").onchange = e => updateAnalysisFilter("operation", e.target.value);
+      $("#analysisGoalFilter").onchange = e => updateAnalysisFilter("goal", e.target.value);
+      $("#analysisSourceFilter").onchange = e => updateAnalysisFilter("source", e.target.value);
+      $("#analysisDateFrom").onchange = e => updateAnalysisFilter("dateFrom", e.target.value);
+      $("#analysisDateTo").onchange = e => updateAnalysisFilter("dateTo", e.target.value);
+      $("#analysisQueryFilter").oninput = e => updateAnalysisFilter("query", e.target.value);
+      $("#analysisCommentsOnly").onchange = e => updateAnalysisFilter("commentsOnly", e.target.checked);
+      $("#analysisSelectedOnly").onchange = e => updateAnalysisFilter("selectedOnly", e.target.checked);
+
       document.addEventListener("keydown", (e) => {
         if (!["Enter", " "].includes(e.key)) return;
         const assignmentTask = e.target.closest(".assignment-task");
@@ -3144,6 +3772,142 @@
       };
 
       // Export / Import
+      function readFileText(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = event => resolve(String(event.target.result || ""));
+          reader.onerror = () => reject(reader.error || new Error("Не удалось прочитать файл"));
+          reader.readAsText(file);
+        });
+      }
+
+      function analysisRootFromPayload(payload) {
+        return payload?.state && typeof payload.state === "object" ? payload.state : payload;
+      }
+
+      function importAnalysisPayload(payload, file) {
+        const root = analysisRootFromPayload(payload);
+        const measurements = Array.isArray(root?.measurements) ? root.measurements : [];
+        const actions = Array.isArray(root?.actionLog) ? root.actionLog : [];
+        const source = analysisSourceFromPayload(payload, file);
+        const importedAt = isoNow();
+        const existingMeasurementKeys = new Set((state.analysis.measurements || []).map(m => m.analysisKey || analysisMeasurementKey(m, { sourceId: m.analysisSourceId || m.analysisFileName || "" })));
+        const existingActionKeys = new Set((state.analysis.actions || []).map(action => action.analysisKey || `${action.analysisSourceId || ""}::${action.id || action.occurredAt || action.type || ""}`));
+
+        let addedMeasurements = 0;
+        let duplicateMeasurements = 0;
+        const addedItemRows = [];
+
+        measurements.forEach(rawMeasurement => {
+          const normalized = analysisNormalizeMeasurement(rawMeasurement, source);
+          normalized.analysisImportedAt = importedAt;
+          if (existingMeasurementKeys.has(normalized.analysisKey)) {
+            duplicateMeasurements += 1;
+            return;
+          }
+          existingMeasurementKeys.add(normalized.analysisKey);
+          state.analysis.measurements.push(normalized);
+          addedItemRows.push(...analysisItemRowsForMeasurement(normalized));
+          addedMeasurements += 1;
+        });
+
+        addedItemRows.forEach(row => state.analysis.itemSelections.push(row));
+
+        let addedActions = 0;
+        actions.forEach(action => {
+          const key = `${source.sourceId}::${action.id || action.occurredAt || action.type || addedActions}`;
+          if (existingActionKeys.has(key)) return;
+          existingActionKeys.add(key);
+          state.analysis.actions.push({
+            ...action,
+            analysisKey: key,
+            analysisSourceId: source.sourceId,
+            analysisFileName: source.fileName,
+            analysisAuditorName: source.auditor,
+            analysisImportedAt: importedAt
+          });
+          addedActions += 1;
+        });
+
+        const fileRecord = {
+          id: uniqueId("analysis_file"),
+          sourceId: source.sourceId,
+          fileName: source.fileName,
+          fileSize: source.fileSize,
+          auditor: source.auditor,
+          assigneeKey: source.assigneeKey,
+          sessionDate: source.sessionDate,
+          site: source.site,
+          version: source.version,
+          exportedAt: source.exportedAt,
+          importedAt,
+          measurementsCount: measurements.length,
+          addedMeasurements,
+          duplicateMeasurements,
+          actionsCount: actions.length,
+          addedActions
+        };
+        state.analysis.importedFiles.push(fileRecord);
+
+        if (!(state.analysis.sessions || []).some(session => session.sourceId === source.sourceId)) {
+          state.analysis.sessions.push({
+            sourceId: source.sourceId,
+            auditor: source.auditor,
+            assigneeKey: source.assigneeKey,
+            sessionDate: source.sessionDate,
+            site: source.site,
+            version: source.version,
+            exportedAt: source.exportedAt,
+            firstFileName: source.fileName,
+            importedAt
+          });
+        }
+
+        return fileRecord;
+      }
+
+      async function importAnalysisFiles(files) {
+        const fileList = Array.from(files || []);
+        if (!fileList.length) return;
+        if (!state.analysis) state.analysis = defaultAnalysisState();
+
+        const results = [];
+        for (const file of fileList) {
+          try {
+            const text = await readFileText(file);
+            const payload = JSON.parse(text);
+            const root = analysisRootFromPayload(payload);
+            if (!root || !Array.isArray(root.measurements)) {
+              results.push({ fileName: file.name, error: "В файле нет массива measurements" });
+              continue;
+            }
+            results.push(importAnalysisPayload(payload, file));
+          } catch (error) {
+            results.push({ fileName: file.name, error: error.message });
+          }
+        }
+
+        saveState();
+        const added = results.reduce((sum, result) => sum + Number(result.addedMeasurements || 0), 0);
+        const duplicates = results.reduce((sum, result) => sum + Number(result.duplicateMeasurements || 0), 0);
+        const failed = results.filter(result => result.error).length;
+        recordAction("analysis_files_imported", {
+          filesCount: fileList.length,
+          addedMeasurements: added,
+          duplicateMeasurements: duplicates,
+          failedFiles: failed,
+          files: results.map(result => ({
+            fileName: result.fileName,
+            addedMeasurements: result.addedMeasurements || 0,
+            duplicateMeasurements: result.duplicateMeasurements || 0,
+            error: result.error || ""
+          }))
+        });
+        renderAll();
+        setMobileView("analysis");
+        showNotice(`Анализ обновлен: добавлено замеров ${added}, дублей ${duplicates}${failed ? `, ошибок файлов ${failed}` : ""}`, failed ? "warning" : "success");
+      }
+
       function downloadFile(fn, txt) {
         const bl = new Blob([txt], {type: "text/plain;charset=utf-8"});
         const a = document.createElement("a"); a.href = URL.createObjectURL(bl); a.download = fn; a.click();
@@ -3166,6 +3930,141 @@
 
       function csvRow(values) {
         return values.map(csvCell).join(";");
+      }
+
+      function analysisExportBaseFilename() {
+        return `post_analysis_${localTimestampForFilename()}`;
+      }
+
+      function downloadCsv(filename, columns, rows) {
+        downloadFile(filename, "\ufeff" + columns.join(";") + "\n" + rows.map(row => csvRow(columns.map(column => row[column]))).join("\n"));
+      }
+
+      function exportAnalysisJson() {
+        const aggregate = buildAnalysisAggregate();
+        recordAction("analysis_export_json", {
+          measurementsCount: aggregate.measurements.length,
+          groupsCount: aggregate.groups.length,
+          importedFilesCount: (state.analysis.importedFiles || []).length
+        });
+        downloadFile(`${analysisExportBaseFilename()}.json`, JSON.stringify({
+          version: "1.0-post-analysis",
+          exportedAt: isoNow(),
+          importedFiles: state.analysis.importedFiles || [],
+          sessions: state.analysis.sessions || [],
+          aggregate
+        }, null, 2));
+      }
+
+      function exportAnalysisMeasurementsCsv() {
+        const aggregate = buildAnalysisAggregate();
+        const columns = [
+          "source_file", "auditor", "session_date", "operation_id", "operation_title", "credit_goal",
+          "employee_name", "employee_role", "employee_profile", "started_at", "ended_at", "duration_sec",
+          "duration_min", "planned_minutes", "deviation_min", "selected_items_count", "operation_items_count",
+          "comment", "measurement_id", "assignment_id"
+        ];
+        const rows = aggregate.measurements.map(m => ({
+          source_file: m.analysisFileName,
+          auditor: m.analysisAuditorName,
+          session_date: m.analysisSessionDate,
+          operation_id: m.operationId,
+          operation_title: m.operationTitle,
+          credit_goal: analysisGoalLabel(m),
+          employee_name: m.employeeName,
+          employee_role: m.employeeRole,
+          employee_profile: profileLabel(m.employeeProfile),
+          started_at: m.startedAt,
+          ended_at: m.endedAt,
+          duration_sec: measurementDurationSec(m),
+          duration_min: Number((measurementDurationSec(m) / 60).toFixed(2)),
+          planned_minutes: m.plannedMinutes ?? m.assignmentTimingMinutes ?? "",
+          deviation_min: m.deviationMin ?? "",
+          selected_items_count: selectedItemsCountForMeasurement(m),
+          operation_items_count: m.operationItemsCount ?? allDetailsFromMeasurement(m).length,
+          comment: m.comment || "",
+          measurement_id: m.id || "",
+          assignment_id: m.assignmentId || ""
+        }));
+        recordAction("analysis_export_measurements_csv", { rowsCount: rows.length });
+        downloadCsv(`${analysisExportBaseFilename()}_measurements.csv`, columns, rows);
+      }
+
+      function exportAnalysisGroupsCsv() {
+        const aggregate = buildAnalysisAggregate();
+        const columns = [
+          "operation_id", "operation_title", "credit_goal", "source_type", "measurements_count",
+          "auditors_count", "managers_count", "total_sec", "avg_sec", "median_sec", "min_sec", "max_sec",
+          "p75_sec", "p90_sec", "planned_minutes", "deviation_avg_min", "auditors", "managers"
+        ];
+        const rows = aggregate.groups.map(group => ({
+          operation_id: group.operationId,
+          operation_title: group.operationTitle,
+          credit_goal: group.creditGoalLabel,
+          source_type: group.sourceType,
+          measurements_count: group.count,
+          auditors_count: group.auditorsCount,
+          managers_count: group.managersCount,
+          total_sec: group.totalSec,
+          avg_sec: group.avgSec,
+          median_sec: group.medianSec,
+          min_sec: group.minSec,
+          max_sec: group.maxSec,
+          p75_sec: group.p75Sec,
+          p90_sec: group.p90Sec,
+          planned_minutes: group.plannedMinutes,
+          deviation_avg_min: group.deviationAvgMin,
+          auditors: group.auditors.join(", "),
+          managers: group.managers.join(", ")
+        }));
+        recordAction("analysis_export_groups_csv", { rowsCount: rows.length });
+        downloadCsv(`${analysisExportBaseFilename()}_groups.csv`, columns, rows);
+      }
+
+      function exportAnalysisItemsCsv() {
+        const aggregate = buildAnalysisAggregate();
+        const columns = [
+          "operation_id", "operation_title", "item_id", "item_number", "item_text", "item_source_type",
+          "selected_count", "available_count", "selection_rate", "avg_selected_sec", "auditors_count", "managers_count"
+        ];
+        const rows = aggregate.items.map(item => ({
+          operation_id: item.operationId,
+          operation_title: item.operationTitle,
+          item_id: item.itemId,
+          item_number: item.itemNumber,
+          item_text: item.itemText,
+          item_source_type: item.sourceType,
+          selected_count: item.selectedCount,
+          available_count: item.availableCount,
+          selection_rate: item.selectionRate,
+          avg_selected_sec: item.avgSelectedSec,
+          auditors_count: item.auditorsCount,
+          managers_count: item.managersCount
+        }));
+        recordAction("analysis_export_items_csv", { rowsCount: rows.length });
+        downloadCsv(`${analysisExportBaseFilename()}_items.csv`, columns, rows);
+      }
+
+      function exportAnalysisCommentsCsv() {
+        const aggregate = buildAnalysisAggregate();
+        const columns = [
+          "source_file", "auditor", "operation_id", "operation_title", "credit_goal", "employee_name",
+          "created_at", "duration_sec", "comment", "measurement_id"
+        ];
+        const rows = aggregate.comments.map(m => ({
+          source_file: m.analysisFileName,
+          auditor: m.analysisAuditorName,
+          operation_id: m.operationId,
+          operation_title: m.operationTitle,
+          credit_goal: analysisGoalLabel(m),
+          employee_name: m.employeeName,
+          created_at: m.createdAt || m.endedAt || m.startedAt || "",
+          duration_sec: measurementDurationSec(m),
+          comment: m.comment || "",
+          measurement_id: m.id || ""
+        }));
+        recordAction("analysis_export_comments_csv", { rowsCount: rows.length });
+        downloadCsv(`${analysisExportBaseFilename()}_comments.csv`, columns, rows);
       }
       
       $("#exportCsvBtn").onclick = () => {
@@ -3430,6 +4329,40 @@
           }
         };
         reader.readAsText(f);
+      };
+
+      $("#importAnalysisBtn").onclick = () => {
+        recordAction("analysis_import_dialog_opened");
+        $("#importAnalysisInput").click();
+      };
+
+      $("#importAnalysisInput").onchange = async (e) => {
+        await importAnalysisFiles(e.target.files);
+        e.target.value = "";
+      };
+
+      $("#exportAnalysisJsonBtn").onclick = exportAnalysisJson;
+      $("#exportAnalysisMeasurementsCsvBtn").onclick = exportAnalysisMeasurementsCsv;
+      $("#exportAnalysisGroupsCsvBtn").onclick = exportAnalysisGroupsCsv;
+      $("#exportAnalysisItemsCsvBtn").onclick = exportAnalysisItemsCsv;
+      $("#exportAnalysisCommentsCsvBtn").onclick = exportAnalysisCommentsCsv;
+
+      $("#clearAnalysisBtn").onclick = () => {
+        if (prompt("Для очистки аналитики введите: АНАЛИЗ") !== "АНАЛИЗ") {
+          recordAction("analysis_clear_cancelled");
+          return;
+        }
+        const previousStats = {
+          importedFilesCount: state.analysis?.importedFiles?.length || 0,
+          measurementsCount: state.analysis?.measurements?.length || 0,
+          itemSelectionsCount: state.analysis?.itemSelections?.length || 0,
+          actionsCount: state.analysis?.actions?.length || 0
+        };
+        state.analysis = defaultAnalysisState();
+        recordAction("analysis_cleared", previousStats);
+        renderAll();
+        setMobileView("analysis");
+        showNotice("Аналитика очищена", "success");
       };
 
       $("#liveMeasurementComment").oninput = (e) => {
