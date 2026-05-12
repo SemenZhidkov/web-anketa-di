@@ -499,7 +499,7 @@
           <label>Источник наблюдения
             <select id="customGroupObservationSource">
               <option value="measurement">замер</option>
-              <option value="employee_comment">комментарий сотрудника</option>
+              <option value="employee_comment">комментарий менеджера</option>
               <option value="auditor_observation">наблюдение проверяющего</option>
               <option value="other">другое</option>
             </select>
@@ -569,7 +569,7 @@
           <label>Источник наблюдения
             <select id="customItemObservationSource">
               <option value="measurement">замер</option>
-              <option value="employee_comment">комментарий сотрудника</option>
+              <option value="employee_comment">комментарий менеджера</option>
               <option value="auditor_observation">наблюдение проверяющего</option>
               <option value="other">другое</option>
             </select>
@@ -617,8 +617,8 @@
             <div class="chips-group" id="chipsStatus">
               <div class="chip active" data-val="all">Все</div>
               <div class="chip" data-val="none">Не измерено</div>
-              <div class="chip" data-val="partial">Частично</div>
-              <div class="chip" data-val="complete">Полностью</div>
+              <div class="chip" data-val="partial">1-2 менеджера</div>
+              <div class="chip" data-val="complete">3 менеджера</div>
             </div>
 
             <div class="muted-bold">Источник:</div>
@@ -652,21 +652,22 @@
         </div>
       </div>
 
-      <!-- Сотрудники -->
+      <!-- Менеджеры -->
       <div class="mobile-view view-employees" id="view-employees">
         <div class="panel">
           <div class="panel-header">
-            <h2>Сотрудники</h2>
+            <h2>Менеджеры</h2>
             <button type="button" id="showAddEmployeeBtn" class="ghost">+ Добавить</button>
           </div>
           <div class="panel-body">
             
             <form id="employeeForm" class="form-grid hidden employee-info-card">
-              <h3 class="mb-2">Новый сотрудник</h3>
+              <h3 class="mb-2">Новый менеджер</h3>
               <label>ФИО / код <input id="employeeName" required autocomplete="off"></label>
               <label>Роль <input id="employeeRole" autocomplete="off" placeholder="ПМ"></label>
-              <label>Профиль
+              <label>Уровень (опционально)
                 <select id="employeeProfile">
+                  <option value="">Не указан</option>
                   <option value="expert">Эксперт</option>
                   <option value="middle">Средний</option>
                   <option value="novice">Новичок</option>
@@ -739,10 +740,10 @@
 
         <div id="measureEmptyBlock" class="empty-note hidden">
           <p class="empty-note-title">Замер не готов</p>
-          <p class="empty-note-desc">Для старта выберите операцию и укажите сотрудника.</p>
+          <p class="empty-note-desc">Для старта выберите операцию и укажите менеджера.</p>
           <div class="form-grid">
             <button type="button" class="primary switch-view" data-target="operations">Выбрать операцию</button>
-            <button type="button" class="ghost switch-view" data-target="employees">Выбрать сотрудника</button>
+            <button type="button" class="ghost switch-view" data-target="employees">Выбрать менеджера</button>
           </div>
         </div>
       </div>
@@ -817,7 +818,7 @@
     </button>
     <button class="nav-item switch-view" data-target="employees">
       <svg viewBox="0 0 24 24"><path d="M12 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/></svg>
-      Сотрудники
+      Менеджеры
     </button>
     <button class="nav-item switch-view" data-target="progress">
       <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 12h2v5H7zm4-3h2v8h-2zm4-4h2v12h-2z"/></svg>
@@ -838,7 +839,8 @@
 
       const STORAGE_KEY = "di_time_measurement_app_v1";
       const TIMER_KEY = STORAGE_KEY + "_timer";
-      const PROFILES = { expert: "Эксперт", middle: "Средний", novice: "Новичок" };
+      const REQUIRED_MANAGER_COUNT = 3;
+      const PROFILES = { "": "Не указан", expert: "Эксперт", middle: "Средний", novice: "Новичок" };
 
       const $ = (selector) => document.querySelector(selector);
       const operations = Array.isArray(window.OPERATIONS) ? window.OPERATIONS : [];
@@ -853,9 +855,16 @@
       const CUSTOM_GOAL_KEYS = ["izhs_jd", "gzh", "ddu"];
       const SOURCE_LABELS = { base: "Базовая", custom_group: "Добавлена проверяющим" };
 
-      const todayIso = () => new Date().toISOString().slice(0, 10);
+      const pad2 = (value) => String(value).padStart(2, "0");
+      const todayIso = () => {
+        const date = new Date();
+        return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+      };
       const isoNow = () => new Date().toISOString();
-      const normalizeAssigneeName = (name) => name === "Аббатуров Д." ? "Абатуров Д." : (name || "");
+      const normalizeAssigneeName = (name) => {
+        if (name === "Аббатуров Д.") return "Абатуров Д.";
+        return (name || "").replace(/Аф{2}енди/g, "Афенди");
+      };
 
       const defaultState = () => ({
         ui: { mobileView: "measure" },
@@ -865,6 +874,9 @@
         customGroups: [],
         customItems: [],
         customAssignments: [],
+        operationItemSelections: {},
+        actionLog: [],
+        measurementCommentDraft: "",
         selectedEmployeeId: "",
         selectedOperationId: operations[0] ? operations[0].id : "",
         selectedAssignmentId: "",
@@ -904,6 +916,89 @@
       function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
       function saveTimer() { localStorage.setItem(TIMER_KEY, JSON.stringify(timer)); }
 
+      function uniqueId(prefix) {
+        return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      function profileLabel(profile) {
+        return PROFILES[profile || ""] || profile || PROFILES[""];
+      }
+
+      function profilePillClass(profile) {
+        return profile ? `profile-pill ${profile}` : "profile-pill";
+      }
+
+      function sanitizeFilenamePart(value) {
+        return String(value || "")
+          .trim()
+          .replace(/[\\/:*?"<>|\x00-\x1f]+/g, " ")
+          .replace(/\s+/g, "_")
+          .replace(/_+/g, "_")
+          .replace(/^[_ .-]+|[_ .-]+$/g, "");
+      }
+
+      function localTimestampForFilename(date = new Date()) {
+        return [
+          date.getFullYear(),
+          pad2(date.getMonth() + 1),
+          pad2(date.getDate())
+        ].join("-") + "_" + [
+          pad2(date.getHours()),
+          pad2(date.getMinutes()),
+          pad2(date.getSeconds())
+        ].join("-");
+      }
+
+      function exportBaseFilename() {
+        const auditor = sanitizeFilenamePart(state.session.auditor || state.session.assigneeName) || "без_проверяющего";
+        return `${auditor}_${localTimestampForFilename()}`;
+      }
+
+      function selectedItemIds(operationId) {
+        const raw = state.operationItemSelections?.[operationId];
+        if (!Array.isArray(raw)) return [];
+        return raw.map(String).filter(Boolean);
+      }
+
+      function operationItemsSnapshot(operationId = activeOp()?.id) {
+        const items = getOperationItems(operationId, true);
+        const selected = new Set(selectedItemIds(operationId));
+        return items.map((item, index) => ({
+          id: item.id || item.text || `item_${index + 1}`,
+          itemIndex: index,
+          itemNumber: index + 1,
+          text: item.text,
+          dealTag: item.dealTag || "",
+          sourceType: item.sourceType || "base_item",
+          parentOperationId: item.parentOperationId || operationId,
+          customComment: item.comment || "",
+          selected: selected.has(item.id || item.text)
+        }));
+      }
+
+      function recordAction(type, details = {}) {
+        if (!Array.isArray(state.actionLog)) state.actionLog = [];
+        const operation = operationById(state.selectedOperationId);
+        const employee = activeEmp();
+        state.actionLog.push({
+          id: uniqueId("action"),
+          type,
+          occurredAt: isoNow(),
+          session: { ...state.session },
+          context: {
+            view: state.ui.mobileView,
+            selectedOperationId: state.selectedOperationId,
+            selectedOperationTitle: operation ? operation.title : "",
+            selectedAssignmentId: state.selectedAssignmentId,
+            selectedEmployeeId: state.selectedEmployeeId,
+            selectedEmployeeName: employee ? employee.name : "",
+            timerStatus: timer.status
+          },
+          details
+        });
+        saveState();
+      }
+
       function getElapsedSec(source = timer) {
         const base = Number(source.elapsedBeforePauseSec || 0);
         if (source.status !== "running" || !source.runningSince) return Math.floor(base);
@@ -929,6 +1024,9 @@
           customGroups: Array.isArray(saved.customGroups) ? saved.customGroups.map(migrateCustomGroup) : [],
           customItems: Array.isArray(saved.customItems) ? saved.customItems.map(migrateCustomItem) : [],
           customAssignments: Array.isArray(saved.customAssignments) ? saved.customAssignments.map(migrateCustomAssignment) : [],
+          operationItemSelections: saved.operationItemSelections && typeof saved.operationItemSelections === "object" ? saved.operationItemSelections : {},
+          actionLog: Array.isArray(saved.actionLog) ? saved.actionLog : [],
+          measurementCommentDraft: typeof saved.measurementCommentDraft === "string" ? saved.measurementCommentDraft : "",
           selectedAssignmentId: saved.selectedAssignmentId || ""
         };
 
@@ -1250,16 +1348,22 @@
 
       function selectAssignment(assignmentId) {
         const assignment = assignmentById(assignmentId);
-        if (!assignment) return showNotice("Назначение не найдено", "warning");
+        if (!assignment) {
+          recordAction("assignment_select_failed", { assignmentId, reason: "not_found" });
+          return showNotice("Назначение не найдено", "warning");
+        }
         if (timer.status !== "idle" && timer.operationId !== assignment.operationId) {
           setMobileView("measure");
+          recordAction("assignment_select_blocked", { assignmentId, activeTimerOperationId: timer.operationId });
           showNotice("Сначала завершите текущий замер!", "warning");
           return;
         }
+        const previousAssignmentId = state.selectedAssignmentId;
+        const previousOperationId = state.selectedOperationId;
         state.selectedAssignmentId = assignment.id;
         state.selectedOperationId = assignment.operationId;
         if (assignment.creditGoalKey && CREDIT_GOALS[assignment.creditGoalKey]) state.filters.deal = assignment.creditGoalKey;
-        saveState();
+        recordAction("assignment_selected", { assignmentId: assignment.id, previousAssignmentId, previousOperationId, operationId: assignment.operationId });
         renderAll();
         setMobileView("measure");
       }
@@ -1379,13 +1483,26 @@
           if (!dealKey || dealKey === "all") return true;
           return x.creditGoalKey === dealKey;
         });
+        const managers = new Map();
+        m.forEach(x => {
+          const key = x.employeeId || x.employeeName;
+          if (key && !managers.has(key)) managers.set(key, x.employeeName || key);
+        });
         const p = {
           expert: m.some(x => x.employeeProfile === "expert"),
           middle: m.some(x => x.employeeProfile === "middle"),
-          novice: m.some(x => x.employeeProfile === "novice")
+          novice: m.some(x => x.employeeProfile === "novice"),
+          noProfile: m.some(x => !x.employeeProfile)
         };
-        const count = Object.values(p).filter(Boolean).length;
-        return { ...p, status: count === 3 ? "complete" : count > 0 ? "partial" : "none", count: m.length };
+        const managersCount = managers.size;
+        return {
+          ...p,
+          status: managersCount >= REQUIRED_MANAGER_COUNT ? "complete" : managersCount > 0 ? "partial" : "none",
+          count: m.length,
+          managersCount,
+          requiredManagersCount: REQUIRED_MANAGER_COUNT,
+          managerNames: Array.from(managers.values())
+        };
       }
 
       function nextCustomGroupId() {
@@ -1629,9 +1746,11 @@
 
       function archiveCustomGroup(id) {
         if (timer.status !== "idle" && timer.operationId === id) {
+          recordAction("custom_group_delete_blocked", { groupId: id, reason: "active_timer" });
           showNotice("Нельзя удалить или архивировать текущую группу во время замера", "warning");
           return;
         }
+        const groupBefore = state.customGroups.find(g => g.id === id);
         if (customGroupUsed(id)) {
           const group = state.customGroups.find(g => g.id === id);
           if (group) {
@@ -1643,7 +1762,7 @@
           state.customItems = state.customItems.filter(item => item.parentOperationId !== id);
         }
         if (state.selectedOperationId === id) state.selectedOperationId = "";
-        saveState();
+        recordAction("custom_group_deleted_or_archived", { groupId: id, group: groupBefore || null });
         renderAll();
       }
 
@@ -1651,9 +1770,11 @@
         const item = state.customItems.find(x => x.id === id);
         if (!item) return;
         if (timer.status !== "idle" && timer.operationId === item.parentOperationId) {
+          recordAction("custom_item_delete_blocked", { itemId: id, reason: "active_timer" });
           showNotice("Нельзя удалить операцию текущей группы во время активного замера", "warning");
           return;
         }
+        const itemBefore = { ...item };
         if (customItemUsed(id)) {
           item.isArchived = true;
           item.updatedAt = isoNow();
@@ -1661,7 +1782,7 @@
           state.customItems = state.customItems.filter(x => x.id !== id);
         }
         syncCustomGroupRows(item.parentOperationId);
-        saveState();
+        recordAction("custom_item_deleted_or_archived", { itemId: id, item: itemBefore });
         renderAll();
       }
 
@@ -1756,15 +1877,15 @@
           <div class="operation-card-top" style="margin-bottom:0; align-items:center;">
              <div>
                 <div class="employee-name">${emp.name}</div>
-                <div class="meta-line-text">${PROFILES[emp.profile] || emp.profile} · ${emp.role || "без роли"}</div>
+                <div class="meta-line-text">${profileLabel(emp.profile)} · ${emp.role || "без роли"}</div>
              </div>
              <button type="button" class="ghost switch-view" data-target="employees">Сменить</button>
           </div>
         ` : `
           <div class="operation-card-top" style="margin-bottom:0; align-items:center;">
              <div>
-                <div class="employee-name">Сотрудник не выбран</div>
-                <div class="meta-line-text">Выберите сотрудника перед стартом замера.</div>
+                <div class="employee-name">Менеджер не выбран</div>
+                <div class="meta-line-text">Выберите менеджера перед стартом замера.</div>
              </div>
              <button type="button" class="primary switch-view" data-target="employees">Выбрать</button>
           </div>
@@ -1774,7 +1895,7 @@
         const goal = getCreditGoal(deal);
         const currentGoalText = deal === "all" ? "Все цели / общий режим" : goal.label;
         const p = coverageForOperation(op.id, deal);
-        const coverBadge = p.status === 'complete' ? '<span class="status-pill complete">Полностью</span>' : p.status === 'partial' ? '<span class="status-pill partial">Частично</span>' : '<span class="status-pill empty">Нет замера</span>';
+        const coverBadge = p.status === 'complete' ? '<span class="status-pill complete">3 менеджера</span>' : p.status === 'partial' ? '<span class="status-pill partial">1-2 менеджера</span>' : '<span class="status-pill empty">Нет замера</span>';
         const sourceLabel = SOURCE_LABELS[op.sourceType] || "Базовая";
         const customItemsInGroup = getOperationItems(op.id).filter(item => item.sourceType === "custom_item").length;
 
@@ -1796,12 +1917,16 @@
         const items = getOperationItems(op.id);
         const itemSignature = items.map(item => `${item.id}:${item.updatedAt || ""}`).join("|");
         if (cl.dataset.opId !== op.id || cl.dataset.itemSignature !== itemSignature) {
-          const prevChecked = new Set(Array.from(document.querySelectorAll('.checklist-item-cb:checked')).map(c => c.dataset.itemId || c.value));
+          const sameOperation = cl.dataset.opId === op.id;
+          const prevChecked = sameOperation
+            ? new Set(Array.from(document.querySelectorAll('.checklist-item-cb:checked')).map(c => c.dataset.itemId || c.value))
+            : new Set(selectedItemIds(op.id));
+          const savedChecked = new Set(selectedItemIds(op.id));
           cl.dataset.opId = op.id;
           cl.dataset.itemSignature = itemSignature;
           cl.innerHTML = items.map((it, i) => {
             const isCustom = it.sourceType === "custom_item";
-            const checked = prevChecked.has(it.id) || prevChecked.has(it.text) ? "checked" : "";
+            const checked = prevChecked.has(it.id) || prevChecked.has(it.text) || savedChecked.has(it.id) || savedChecked.has(it.text) ? "checked" : "";
             return `
             <li class="${isCustom ? 'custom-item-row' : ''}">
               <label for="chk_${i}">
@@ -1832,6 +1957,22 @@
         checkedItems.forEach(el => el.closest('li').classList.add('checked'));
 
         $("#checkedCountBadge").textContent = `${checkedItems.length} / ${total}`;
+      }
+
+      function syncChecklistSelection(operationId = activeOp()?.id) {
+        if (!operationId) return [];
+        const selected = Array.from(document.querySelectorAll('.checklist-item-cb:checked'))
+          .map(input => input.dataset.itemId || input.value)
+          .filter(Boolean);
+        if (!state.operationItemSelections || typeof state.operationItemSelections !== "object") {
+          state.operationItemSelections = {};
+        }
+        if (selected.length) {
+          state.operationItemSelections[operationId] = selected;
+        } else {
+          delete state.operationItemSelections[operationId];
+        }
+        return selected;
       }
 
       function updateTimerDisplay() {
@@ -1973,7 +2114,7 @@
         list.innerHTML = filtered.map(op => {
           const cp = coverageForOperation(op.id, deal);
           const cpCls = cp.status==='complete'?'complete':cp.status==='partial'?'partial':'empty';
-          const cpTxt = cp.status==='complete'?'Полн.':cp.status==='partial'?'Част.':'Нет';
+          const cpTxt = cp.status==='complete'?'3 мен.':cp.status==='partial'?'1-2 мен.':'Нет';
           const isCustom = op.sourceType === "custom_group";
           const assignments = getAssignmentsForOperation(op.id, assignmentOptions)
             .filter(a => assignmentMatchesDeal(a, deal))
@@ -2005,6 +2146,7 @@
               <div class="operation-title">${escapeHtml(op.title)}</div>
               <div class="operation-card-bottom">
                 <span>Строк: ${getOperationRowsCount(op.id)}</span>
+                <span>Менеджеры: ${cp.managersCount || 0}/${REQUIRED_MANAGER_COUNT}</span>
                 ${isCustom && op.customMeta?.comment ? `<span class="custom-comment">Комментарий: ${escapeHtml(op.customMeta.comment)}</span>` : ''}
                 ${assignmentsHtml}
                 <button type="button" class="primary select-op-btn" data-id="${escapeAttr(op.id)}">Выбрать группу</button>
@@ -2028,7 +2170,7 @@
               <div class="employee-content">
                 <div class="employee-name">${e.name}</div>
                 <div class="meta-line">
-                   <span class="profile-pill ${e.profile}">${PROFILES[e.profile] || e.profile}</span>
+                   <span class="${profilePillClass(e.profile)}">${profileLabel(e.profile)}</span>
                    <span class="meta-line-text">${e.role || 'Без роли'}</span>
                 </div>
               </div>
@@ -2092,16 +2234,19 @@
       function applyAssigneeSelection(assigneeKey) {
         if (timer.status !== "idle") {
           $("#sessionAssignee").value = state.session.assigneeKey || "";
+          recordAction("assignee_select_blocked", { assigneeKey, reason: "active_timer" });
           showNotice("Сначала завершите или сбросьте текущий замер", "warning");
           return;
         }
         const assignee = AUDIT_ASSIGNEES.find(a => a.key === assigneeKey);
         if (!assignee) {
           $("#sessionAssignee").value = state.session.assigneeKey || "";
+          recordAction("assignee_select_blocked", { assigneeKey, reason: "not_found" });
           showNotice("Выберите проверяющего из списка", "warning");
           return;
         }
 
+        const previousAssigneeKey = state.session.assigneeKey;
         state.session.assigneeKey = assignee.key;
         state.session.assigneeName = assignee.label;
         state.session.auditor = assignee.label;
@@ -2109,7 +2254,7 @@
         state.filters.assignmentScope = "my";
         state.filters.assignmentStatus = "pending";
         state.filters.deal = "all";
-        saveState();
+        recordAction("assignee_selected", { assigneeKey: assignee.key, assigneeName: assignee.label, previousAssigneeKey });
         ensureSelectedAssignment();
         renderAll();
         setMobileView("operations");
@@ -2257,8 +2402,11 @@
             parentOperationId: operationId,
             comment: ""
           };
+          const itemIndex = items.findIndex(x => x.id === item.id);
           return {
             id: item.id,
+            itemIndex,
+            itemNumber: itemIndex >= 0 ? itemIndex + 1 : null,
             text: item.text,
             dealTag: item.dealTag || "",
             sourceType: item.sourceType,
@@ -2281,10 +2429,30 @@
       ----------------------------------------*/
       document.addEventListener("click", e => {
         const sw = e.target.closest(".switch-view");
-        if (sw) setMobileView(sw.dataset.target);
-        if (e.target.closest(".nav-to-more")) setMobileView("more");
+        if (sw) {
+          recordAction("view_switched", { from: state.ui.mobileView, to: sw.dataset.target });
+          setMobileView(sw.dataset.target);
+        }
+        if (e.target.closest(".nav-to-more")) {
+          recordAction("view_switched", { from: state.ui.mobileView, to: "more" });
+          setMobileView("more");
+        }
 
-        if (e.target.closest(".checklist-item-cb")) updateChecklistCount();
+        const checklistToggle = e.target.closest(".checklist-item-cb");
+        if (checklistToggle) {
+          updateChecklistCount();
+          const operationId = activeOp()?.id || $("#operationChecklist").dataset.opId || "";
+          const selectedIds = syncChecklistSelection(operationId);
+          const items = getOperationItems(operationId, true);
+          const item = items.find(x => x.id === checklistToggle.dataset.itemId) || null;
+          recordAction("operation_item_toggled", {
+            operationId,
+            itemId: checklistToggle.dataset.itemId || checklistToggle.value,
+            itemText: item?.text || checklistToggle.value,
+            checked: checklistToggle.checked,
+            selectedItemIds: selectedIds
+          });
+        }
 
         const chipDeal = e.target.closest("#chipsDeal .chip");
         if (chipDeal) {
@@ -2299,6 +2467,7 @@
             }
           }
 
+          const previousDeal = state.filters.deal;
           state.filters.deal = nextDeal;
 
           const selected = activeOp();
@@ -2307,7 +2476,7 @@
             state.selectedOperationId = first ? first.id : "";
           }
 
-          saveState();
+          recordAction("filter_updated", { field: "deal", previousValue: previousDeal, value: nextDeal });
           renderAll();
         }
 
@@ -2316,6 +2485,7 @@
           const id = selOp.dataset.id;
           if (timer.status !== "idle" && timer.operationId !== id) {
             setMobileView("measure");
+            recordAction("operation_select_blocked", { operationId: id, activeTimerOperationId: timer.operationId });
             showNotice("Сначала завершите текущий замер!", "warning");
             return;
           }
@@ -2327,9 +2497,11 @@
             selectAssignment(candidateAssignments[0].id);
             return;
           }
+          const previousOperationId = state.selectedOperationId;
           state.selectedOperationId = id;
           state.selectedAssignmentId = "";
-          saveState(); renderAll(); setMobileView("measure");
+          recordAction("operation_selected", { operationId: id, previousOperationId });
+          renderAll(); setMobileView("measure");
         }
 
         const selEmp = e.target.closest(".select-emp-btn");
@@ -2337,41 +2509,51 @@
           const id = selEmp.dataset.id;
           if (timer.status !== "idle" && timer.employeeId !== id) {
              setMobileView("measure");
+             recordAction("employee_select_blocked", { employeeId: id, activeTimerEmployeeId: timer.employeeId });
              showNotice("Сначала завершите текущий замер!", "warning");
              return;
           }
+          const previousEmployeeId = state.selectedEmployeeId;
           state.selectedEmployeeId = id;
-          saveState(); renderAll(); setMobileView("measure");
+          recordAction("employee_selected", { employeeId: id, previousEmployeeId });
+          renderAll(); setMobileView("measure");
         }
 
         const delEmp = e.target.closest(".delete-emp-btn");
         if (delEmp) {
           const id = delEmp.dataset.id;
-          if (timer.status !== "idle" && timer.employeeId === id) return showNotice("Нельзя удалить активного сотрудника", "warning");
-          if (confirm("Удалить сотрудника?")) {
+          if (timer.status !== "idle" && timer.employeeId === id) {
+            recordAction("employee_delete_blocked", { employeeId: id, reason: "active_timer" });
+            return showNotice("Нельзя удалить активного менеджера", "warning");
+          }
+          if (confirm("Удалить менеджера?")) {
+            const employee = state.employees.find(x => x.id === id);
             state.employees = state.employees.filter(x => x.id !== id);
             if (state.selectedEmployeeId === id) state.selectedEmployeeId = "";
-            saveState(); renderAll();
+            recordAction("employee_deleted", { employee });
+            renderAll();
+          } else {
+            recordAction("employee_delete_cancelled", { employeeId: id });
           }
         }
 
         const chipS = e.target.closest("#chipsStage .chip");
-        if (chipS) { state.filters.stage = chipS.dataset.val; saveState(); renderOperationsTab(); }
+        if (chipS) { const previousValue = state.filters.stage; state.filters.stage = chipS.dataset.val; recordAction("filter_updated", { field: "stage", previousValue, value: chipS.dataset.val }); renderOperationsTab(); }
         
         const chipSt = e.target.closest("#chipsStatus .chip");
-        if (chipSt) { state.filters.status = chipSt.dataset.val; saveState(); renderOperationsTab(); }
+        if (chipSt) { const previousValue = state.filters.status; state.filters.status = chipSt.dataset.val; recordAction("filter_updated", { field: "status", previousValue, value: chipSt.dataset.val }); renderOperationsTab(); }
 
         const chipSource = e.target.closest("#chipsSource .chip");
-        if (chipSource) { state.filters.source = chipSource.dataset.val; saveState(); renderOperationsTab(); }
+        if (chipSource) { const previousValue = state.filters.source; state.filters.source = chipSource.dataset.val; recordAction("filter_updated", { field: "source", previousValue, value: chipSource.dataset.val }); renderOperationsTab(); }
 
         const chipAssignmentScope = e.target.closest("#chipsAssignmentScope .chip");
-        if (chipAssignmentScope) { state.filters.assignmentScope = chipAssignmentScope.dataset.val; saveState(); renderAll(); }
+        if (chipAssignmentScope) { const previousValue = state.filters.assignmentScope; state.filters.assignmentScope = chipAssignmentScope.dataset.val; recordAction("filter_updated", { field: "assignmentScope", previousValue, value: chipAssignmentScope.dataset.val }); renderAll(); }
 
         const chipAssignmentStatus = e.target.closest("#chipsAssignmentStatus .chip");
-        if (chipAssignmentStatus) { state.filters.assignmentStatus = chipAssignmentStatus.dataset.val; saveState(); renderAll(); }
+        if (chipAssignmentStatus) { const previousValue = state.filters.assignmentStatus; state.filters.assignmentStatus = chipAssignmentStatus.dataset.val; recordAction("filter_updated", { field: "assignmentStatus", previousValue, value: chipAssignmentStatus.dataset.val }); renderAll(); }
 
         const chipProgressMode = e.target.closest("#chipsProgressMode .chip");
-        if (chipProgressMode) { state.filters.progressMode = chipProgressMode.dataset.val; saveState(); renderProgressTab(); }
+        if (chipProgressMode) { const previousValue = state.filters.progressMode; state.filters.progressMode = chipProgressMode.dataset.val; recordAction("filter_updated", { field: "progressMode", previousValue, value: chipProgressMode.dataset.val }); renderProgressTab(); }
 
         const selectAssignmentBtn = e.target.closest(".select-assignment-btn");
         if (selectAssignmentBtn) {
@@ -2385,42 +2567,71 @@
           return;
         }
 
-        if (e.target.closest("#showAddCustomGroupBtn") || e.target.closest("#emptyAddCustomGroupBtn")) openCustomGroupModal();
+        if (e.target.closest("#showAddCustomGroupBtn") || e.target.closest("#emptyAddCustomGroupBtn")) {
+          recordAction("custom_group_modal_opened");
+          openCustomGroupModal();
+        }
 
         const editGroup = e.target.closest(".edit-custom-group-btn");
-        if (editGroup) openCustomGroupModal(editGroup.dataset.id);
+        if (editGroup) {
+          recordAction("custom_group_edit_opened", { groupId: editGroup.dataset.id });
+          openCustomGroupModal(editGroup.dataset.id);
+        }
 
         const deleteGroup = e.target.closest(".delete-custom-group-btn");
         if (deleteGroup && confirm("Удалить пользовательскую группу? Если по ней есть замеры, она будет архивирована.")) {
           archiveCustomGroup(deleteGroup.dataset.id);
+        } else if (deleteGroup) {
+          recordAction("custom_group_delete_cancelled", { groupId: deleteGroup.dataset.id });
         }
 
-        if (e.target.closest("#showAddCustomItemBtn")) openCustomItemModal();
+        if (e.target.closest("#showAddCustomItemBtn")) {
+          recordAction("custom_item_modal_opened", { operationId: activeOp()?.id || "" });
+          openCustomItemModal();
+        }
 
         const editItem = e.target.closest(".edit-custom-item-btn");
-        if (editItem) openCustomItemModal(editItem.dataset.id);
+        if (editItem) {
+          recordAction("custom_item_edit_opened", { itemId: editItem.dataset.id });
+          openCustomItemModal(editItem.dataset.id);
+        }
 
         const deleteItem = e.target.closest(".delete-custom-item-btn");
         if (deleteItem && confirm("Удалить пользовательскую операцию? Если она использовалась в замере, она будет архивирована.")) {
           archiveCustomItem(deleteItem.dataset.id);
+        } else if (deleteItem) {
+          recordAction("custom_item_delete_cancelled", { itemId: deleteItem.dataset.id });
         }
       });
 
-      $("#showAddEmployeeBtn").onclick = () => $("#employeeForm").classList.remove("hidden");
-      $("#hideAddEmployeeBtn").onclick = () => $("#employeeForm").classList.add("hidden");
+      $("#showAddEmployeeBtn").onclick = () => {
+        recordAction("employee_form_opened");
+        $("#employeeForm").classList.remove("hidden");
+      };
+      $("#hideAddEmployeeBtn").onclick = () => {
+        recordAction("employee_form_cancelled");
+        $("#employeeForm").classList.add("hidden");
+      };
       $("#employeeForm").onsubmit = (e) => {
         e.preventDefault();
         const nm = $("#employeeName").value.trim();
         if(!nm) return;
-        const emp = { id: `emp_${Date.now()}`, name: nm, role: $("#employeeRole").value.trim(), profile: $("#employeeProfile").value };
+        const emp = { id: uniqueId("emp"), name: nm, role: $("#employeeRole").value.trim(), profile: $("#employeeProfile").value };
         state.employees.push(emp);
         state.selectedEmployeeId = emp.id;
-        saveState(); e.target.reset();
+        recordAction("employee_added", { employee: emp });
+        e.target.reset();
+        $("#employeeProfile").value = "";
         $("#employeeForm").classList.add("hidden");
         renderAll(); setMobileView("measure");
       };
 
-      $("#filterSearch").oninput = (e) => { state.filters.search = e.target.value; saveState(); renderOperationsTab(); };
+      $("#filterSearch").oninput = (e) => {
+        const previousValue = state.filters.search;
+        state.filters.search = e.target.value;
+        recordAction("filter_updated", { field: "search", previousValue, value: e.target.value });
+        renderOperationsTab();
+      };
 
       $("#sessionAssignee").onchange = (e) => applyAssigneeSelection(e.target.value);
 
@@ -2432,39 +2643,54 @@
         selectAssignment(assignmentTask.dataset.assignmentId);
       });
 
-      $("#customGroupCancelBtn").onclick = closeCustomGroupModal;
+      $("#customGroupCancelBtn").onclick = () => {
+        recordAction("custom_group_modal_cancelled", { groupId: $("#customGroupId").value || "" });
+        closeCustomGroupModal();
+      };
       $("#customGroupForm").onsubmit = (e) => {
         e.preventDefault();
         const groupId = $("#customGroupId").value;
         const payload = readCustomGroupForm();
         const error = validateCustomGroupPayload(payload);
-        if (error) return showNotice(error, "warning");
+        if (error) {
+          recordAction("custom_group_save_blocked", { groupId, error });
+          return showNotice(error, "warning");
+        }
 
         if (!groupId) {
           const similar = findSimilarOperations(payload.title);
-          if (similar.length && !confirm(`Возможно, похожая группа уже есть: ${similar[0].id} ${similar[0].title}. Все равно создать новую группу?`)) return;
+          if (similar.length && !confirm(`Возможно, похожая группа уже есть: ${similar[0].id} ${similar[0].title}. Все равно создать новую группу?`)) {
+            recordAction("custom_group_create_cancelled", { payload, similarOperationId: similar[0].id });
+            return;
+          }
         }
 
         const group = groupId ? updateCustomGroup(groupId, payload) : createCustomGroup(payload);
         state.selectedOperationId = group.id;
         state.filters.source = "all";
-        saveState();
+        recordAction(groupId ? "custom_group_updated" : "custom_group_created", { groupId: group.id, payload, group });
         closeCustomGroupModal();
         renderAll();
         setMobileView("measure");
         showNotice(groupId ? "Группа обновлена" : "Фактическая группа добавлена", "success");
       };
 
-      $("#customItemCancelBtn").onclick = closeCustomItemModal;
+      $("#customItemCancelBtn").onclick = () => {
+        recordAction("custom_item_modal_cancelled", { itemId: $("#customItemId").value || "" });
+        closeCustomItemModal();
+      };
       $("#customItemForm").onsubmit = (e) => {
         e.preventDefault();
         const itemId = $("#customItemId").value;
         const payload = readCustomItemForm();
         const error = validateCustomItemPayload(payload);
-        if (error) return showNotice(error, "warning");
+        if (error) {
+          recordAction("custom_item_save_blocked", { itemId, error });
+          return showNotice(error, "warning");
+        }
 
-        itemId ? updateCustomItem(itemId, payload) : createCustomItem(payload, { skipSave: true });
-        saveState();
+        const item = itemId ? updateCustomItem(itemId, payload) : createCustomItem(payload, { skipSave: true });
+        recordAction(itemId ? "custom_item_updated" : "custom_item_created", { itemId: item?.id || itemId, payload, item });
         closeCustomItemModal();
         const cl = $("#operationChecklist");
         cl.dataset.itemSignature = "";
@@ -2477,45 +2703,60 @@
         const op = activeOp();
         const emp = activeEmp();
         if (!op || !emp) {
-          showNotice("Для старта выберите операцию и сотрудника", "warning");
+          recordAction("timer_start_blocked", { reason: !op ? "operation_missing" : "employee_missing" });
+          showNotice("Для старта выберите операцию и менеджера", "warning");
           return;
         }
         const assignmentCandidate = activeAssignment();
         const assignment = assignmentCandidate && assignmentCandidate.operationId === op.id ? assignmentCandidate : null;
         if (state.filters.assignmentScope === "my" && !assignment) {
+          recordAction("timer_start_blocked", { reason: "assignment_missing", operationId: op.id, employeeId: emp.id });
           showNotice("В режиме «Мои задачи» выберите конкретное назначение", "warning");
           setMobileView("operations");
           return;
         }
         if (assignment) {
           if (assignment.operationId !== op.id) {
+            recordAction("timer_start_blocked", { reason: "assignment_operation_mismatch", assignmentId: assignment.id, operationId: op.id });
             showNotice("Выбранное назначение не совпадает с DI-группой", "warning");
             return;
           }
           if (CUSTOM_GOAL_KEYS.includes(assignment.creditGoalKey) && currentDealKey() !== assignment.creditGoalKey) {
             state.filters.deal = assignment.creditGoalKey;
-            saveState();
+            recordAction("filter_updated", { field: "deal", value: assignment.creditGoalKey, reason: "timer_assignment_goal" });
           }
         }
         if (currentDealKey() === "all" && !assignment) {
           showNotice("Выбран общий режим «Все цели». Для продуктовой аналитики лучше выбрать ИЖС+ЖД, ГЖ или ДДУ.", "warning");
         }
         timer = { operationId: op.id, employeeId: emp.id, startedAt: isoNow(), runningSince: isoNow(), elapsedBeforePauseSec: 0, status: "running" };
-        saveTimer(); renderAll();
+        saveTimer();
+        recordAction("timer_started", { operationId: op.id, employeeId: emp.id, assignmentId: assignment?.id || "", creditGoalKey: currentDealKey() });
+        renderAll();
       };
       $("#timerPauseBtn").onclick = () => {
         timer.elapsedBeforePauseSec = getElapsedSec();
         timer.runningSince = ""; timer.status = "paused";
-        saveTimer(); renderAll();
+        saveTimer();
+        recordAction("timer_paused", { operationId: timer.operationId, employeeId: timer.employeeId, elapsedSec: timer.elapsedBeforePauseSec });
+        renderAll();
       };
       $("#timerResumeBtn").onclick = () => {
         timer.runningSince = isoNow(); timer.status = "running";
-        saveTimer(); renderAll();
+        saveTimer();
+        recordAction("timer_resumed", { operationId: timer.operationId, employeeId: timer.employeeId, elapsedBeforePauseSec: timer.elapsedBeforePauseSec });
+        renderAll();
       };
       $("#timerResetBtn").onclick = () => {
         if(confirm("Сбросить текущий замер без сохранения?")) { 
+          const previousTimer = { ...timer, elapsedSec: getElapsedSec() };
           timer = defaultTimer(); saveTimer(); renderAll(); 
-          document.querySelectorAll('.checklist-item-cb').forEach(c => c.checked = false); updateChecklistCount(); 
+          document.querySelectorAll('.checklist-item-cb').forEach(c => c.checked = false);
+          syncChecklistSelection(previousTimer.operationId);
+          updateChecklistCount();
+          recordAction("timer_reset", { timer: previousTimer });
+        } else {
+          recordAction("timer_reset_cancelled", { timer: { ...timer, elapsedSec: getElapsedSec() } });
         }
       };
       
@@ -2525,6 +2766,7 @@
         if(timer.status === "running") { timer.status = "paused"; timer.runningSince = ""; saveTimer(); renderAll(); }
         
         const op = operationById(timer.operationId);
+        syncChecklistSelection(op.id);
         const assignment = activeAssignment();
         const deal = assignment?.creditGoalKey || currentDealKey();
         const goal = getCreditGoal(deal);
@@ -2543,7 +2785,7 @@
 
         $("#confirmData").innerHTML = `
           <div class="operation-title" style="margin-top:0;">${escapeHtml(op.id)} · ${escapeHtml(op.title)}</div>
-          <div class="meta-line-text mb-3">Сотрудник: ${state.employees.find(e=>e.id===timer.employeeId)?.name || ''}</div>
+          <div class="meta-line-text mb-3">Менеджер: ${state.employees.find(e=>e.id===timer.employeeId)?.name || ''}</div>
           <div class="meta-line-text mb-3">Цель кредита: ${escapeHtml(goalLabel)}</div>
           ${assignment ? `<div class="meta-line-text mb-3">Назначение: ${escapeHtml(assignment.id)} · ${assignmentDateLabel(assignment.date)} · замер ${assignment.measurementNo ?? '-'}</div>` : ''}
           <div class="meta-line-text mb-3">Источник группы: ${SOURCE_LABELS[op.sourceType] || "Базовая"}</div>
@@ -2556,16 +2798,28 @@
           </div>
           ${customCheckedList}
         `;
-        $("#measurementComment").value = "";
+        $("#measurementComment").value = state.measurementCommentDraft || "";
+        recordAction("measurement_finish_opened", {
+          operationId: op.id,
+          employeeId: timer.employeeId,
+          assignmentId: assignment?.id || "",
+          durationSec: sec,
+          checkedItemsCount: checkedDetailed.length,
+          selectedItemIds: selectedItemIds(op.id)
+        });
         $("#confirmModal").classList.add("active");
       };
 
-      $("#confirmCancelBtn").onclick = () => { $("#confirmModal").classList.remove("active"); };
+      $("#confirmCancelBtn").onclick = () => {
+        recordAction("measurement_save_cancelled", { operationId: timer.operationId, employeeId: timer.employeeId });
+        $("#confirmModal").classList.remove("active");
+      };
       $("#confirmSaveBtn").onclick = () => {
         const op = operationById(timer.operationId);
         const emp = state.employees.find(e => e.id === timer.employeeId);
         const assignment = activeAssignment();
         if (state.filters.assignmentScope === "my" && !assignment) {
+          recordAction("measurement_save_blocked", { reason: "assignment_missing", operationId: op?.id || "", employeeId: emp?.id || "" });
           showNotice("Нельзя сохранить замер в режиме «Мои задачи» без выбранного назначения", "warning");
           return;
         }
@@ -2574,11 +2828,14 @@
         const sec = timer.elapsedBeforePauseSec;
         const min = Number((sec/60).toFixed(2));
         const dev = op.plannedMinutes == null ? null : Number((min - op.plannedMinutes).toFixed(2));
+        syncChecklistSelection(op.id);
         const checkedDetailed = getCheckedItemsDetailed(op.id);
         const checked = checkedDetailed.map(item => item.text);
+        const operationItemsDetailed = operationItemsSnapshot(op.id);
+        const selectedItemsDetailed = operationItemsDetailed.filter(item => item.selected);
 
-        state.measurements.push({
-          id: `measurement_${Date.now()}`,
+        const measurement = {
+          id: uniqueId("measurement"),
           operationId: op.id, operationTitle: op.title, stage: op.stage, processBlock: op.processBlock, dealType: op.dealType,
           assignmentId: assignment?.id || "", assignmentSeq: assignment?.seq ?? null, assignmentType: assignment?.assignmentType || "legacy",
           assigneeKey: assignment?.assigneeKey || state.session.assigneeKey || "", assigneeName: assignment?.assigneeName || state.session.assigneeName || "",
@@ -2593,12 +2850,34 @@
           plannedMinutes: op.plannedMinutes,
           employeeId: emp.id, employeeName: emp.name, employeeRole: emp.role, employeeProfile: emp.profile,
           startedAt: timer.startedAt, endedAt: isoNow(), durationSec: sec, durationMin: min, deviationMin: dev, deviationPercent: null,
-          checkedItems: checked, checkedItemsDetailed: checkedDetailed, comment: $("#measurementComment").value.trim(), createdAt: isoNow()
-        });
+          checkedItems: checked,
+          checkedItemsDetailed: checkedDetailed,
+          operationItemsDetailed,
+          selectedItemsDetailed,
+          operationItemsCount: operationItemsDetailed.length,
+          selectedItemsCount: selectedItemsDetailed.length,
+          selectedItemIds: selectedItemsDetailed.map(item => item.id),
+          selectedItemNumbers: selectedItemsDetailed.map(item => item.itemNumber),
+          sessionSnapshot: { ...state.session },
+          comment: $("#measurementComment").value.trim(),
+          createdAt: isoNow()
+        };
+        state.measurements.push(measurement);
         
         timer = defaultTimer();
-        saveTimer(); saveState();
+        state.measurementCommentDraft = "";
+        saveTimer();
+        recordAction("measurement_saved", {
+          measurementId: measurement.id,
+          operationId: op.id,
+          employeeId: emp.id,
+          assignmentId: assignment?.id || "",
+          durationSec: sec,
+          selectedItemsCount: selectedItemsDetailed.length,
+          selectedItemIds: measurement.selectedItemIds
+        });
         document.querySelectorAll('.checklist-item-cb').forEach(c => c.checked = false);
+        syncChecklistSelection(op.id);
         updateChecklistCount();
         $("#confirmModal").classList.remove("active");
         renderAll();
@@ -2616,9 +2895,31 @@
         const escaped = text.replace(/"/g, '""');
         return /[;"\n\r]/.test(escaped) ? `"${escaped}"` : escaped;
       }
+
+      function csvJson(value) {
+        try {
+          return JSON.stringify(value ?? null);
+        } catch (error) {
+          console.warn(error);
+          return "";
+        }
+      }
+
+      function csvRow(values) {
+        return values.map(csvCell).join(";");
+      }
       
       $("#exportCsvBtn").onclick = () => {
-        const header = [
+        recordAction("export_csv", {
+          measurementsCount: state.measurements.length,
+          actionLogCount: Array.isArray(state.actionLog) ? state.actionLog.length : 0,
+          operationSelectionsCount: Object.keys(state.operationItemSelections || {}).length
+        });
+        const columns = [
+          "record_type",
+          "event_id",
+          "event_type",
+          "event_at",
           "session_date",
           "auditor",
           "site",
@@ -2664,6 +2965,7 @@
           "employee_name",
           "employee_role",
           "employee_profile",
+          "employee_profile_label",
           "started_at",
           "ended_at",
           "duration_sec",
@@ -2672,14 +2974,18 @@
           "deviation_percent",
           "checked_items",
           "checked_items_detailed_json",
+          "checked_item_ids",
+          "operation_items_detailed_json",
           "custom_items_count",
           "custom_item_ids",
           "custom_item_texts",
           "custom_item_reasons",
           "custom_item_comments",
-          "comment"
-        ].join(";") + "\\n";
-        const rows = state.measurements.map(m => {
+          "comment",
+          "action_details_json"
+        ];
+        const row = (data) => columns.map(column => csvCell(data[column])).join(";");
+        const measurementRows = state.measurements.map(m => {
           const op = operationById(m.operationId);
           const goalRows = m.operationGoalRowsCount || (op ? op.goalRowsCount : {}) || {};
           const operationCreditGoals = Array.isArray(m.operationCreditGoals)
@@ -2691,64 +2997,152 @@
           const detailed = Array.isArray(m.checkedItemsDetailed) ? m.checkedItemsDetailed : [];
           const customDetailed = detailed.filter(item => item.sourceType === "custom_item");
           const customFullItems = customDetailed.map(item => (state.customItems || []).find(x => x.id === item.id) || item);
+          const session = m.sessionSnapshot || state.session;
 
-          return [
-            state.session.date, state.session.auditor, state.session.site,
-            m.operationId, m.operationTitle, m.stage, m.processBlock, m.dealType,
-            m.assignmentId || "",
-            m.assignmentSeq ?? "",
-            m.assignmentType || "",
-            m.assigneeKey || "",
-            m.assigneeName || "",
-            m.assignmentDate || "",
-            m.assignmentStart || "",
-            m.assignmentEnd || "",
-            m.assignmentCreditGoalKey || "",
-            m.assignmentCreditGoalLabel || "",
-            m.assignmentMeasurementNo ?? "",
-            m.assignmentTimingMinutes ?? "",
-            m.assignmentRowsIn233 ?? "",
-            m.assignmentPriority || "",
-            m.assignmentSourceSheet || "",
-            m.assignmentSourceRow ?? "",
-            operationSourceType,
-            isCustomGroup ? "1" : "0",
-            isCustomGroup ? m.operationId : "",
-            customMeta.reason || "",
-            customMeta.comment || "",
-            customMeta.description || "",
-            customMeta.createdAt || op?.createdAt || "",
-            customMeta.createdByAuditor || op?.createdByAuditor || "",
-            customMeta.similarBaseOperationId || "",
-            m.creditGoalKey || "legacy_unknown",
-            m.creditGoalLabel || "Не указано / старый замер",
-            operationCreditGoals.join(","),
-            goalRows.izhsJd ?? "",
-            goalRows.gzh ?? "",
-            goalRows.ddu ?? "",
-            goalRows.total ?? "",
-            m.plannedMinutes,
-            m.employeeId, m.employeeName, m.employeeRole, m.employeeProfile,
-            m.startedAt, m.endedAt, m.durationSec, m.durationMin, m.deviationMin, m.deviationPercent ?? "",
-            (m.checkedItems||[]).join(","),
-            JSON.stringify(detailed),
-            customDetailed.length,
-            customDetailed.map(item => item.id).join(","),
-            customDetailed.map(item => item.text).join(" | "),
-            customFullItems.map(item => item.reason || "").join(" | "),
-            customFullItems.map(item => item.customComment || item.comment || "").join(" | "),
-            m.comment||""
-          ].map(csvCell).join(";");
-        }).join("\\n");
-        downloadFile("export.csv", "\\ufeff" + header + rows);
+          return row({
+            record_type: "measurement",
+            event_id: m.id,
+            event_type: "measurement_saved",
+            event_at: m.createdAt || m.endedAt,
+            session_date: session.date,
+            auditor: session.auditor || session.assigneeName,
+            site: session.site,
+            operation_id: m.operationId,
+            operation_title: m.operationTitle,
+            stage: m.stage,
+            process_block: m.processBlock,
+            deal_type: m.dealType,
+            assignment_id: m.assignmentId || "",
+            assignment_seq: m.assignmentSeq ?? "",
+            assignment_type: m.assignmentType || "",
+            assignee_key: m.assigneeKey || "",
+            assignee_name: m.assigneeName || "",
+            assignment_date: m.assignmentDate || "",
+            assignment_start: m.assignmentStart || "",
+            assignment_end: m.assignmentEnd || "",
+            assignment_credit_goal_key: m.assignmentCreditGoalKey || "",
+            assignment_credit_goal_label: m.assignmentCreditGoalLabel || "",
+            assignment_measurement_no: m.assignmentMeasurementNo ?? "",
+            assignment_timing_minutes: m.assignmentTimingMinutes ?? "",
+            assignment_rows_in_233: m.assignmentRowsIn233 ?? "",
+            assignment_priority: m.assignmentPriority || "",
+            assignment_source_sheet: m.assignmentSourceSheet || "",
+            assignment_source_row: m.assignmentSourceRow ?? "",
+            operation_source_type: operationSourceType,
+            is_custom_group: isCustomGroup ? "1" : "0",
+            custom_group_id: isCustomGroup ? m.operationId : "",
+            custom_group_reason: customMeta.reason || "",
+            custom_group_comment: customMeta.comment || "",
+            custom_group_description: customMeta.description || "",
+            custom_group_created_at: customMeta.createdAt || op?.createdAt || "",
+            custom_group_created_by: customMeta.createdByAuditor || op?.createdByAuditor || "",
+            similar_base_operation_id: customMeta.similarBaseOperationId || "",
+            credit_goal_key: m.creditGoalKey || "legacy_unknown",
+            credit_goal_label: m.creditGoalLabel || "Не указано / старый замер",
+            operation_credit_goals: operationCreditGoals.join(","),
+            operation_goal_rows_izhs_jd: goalRows.izhsJd ?? "",
+            operation_goal_rows_gzh: goalRows.gzh ?? "",
+            operation_goal_rows_ddu: goalRows.ddu ?? "",
+            operation_goal_rows_total: goalRows.total ?? "",
+            planned_minutes: m.plannedMinutes,
+            employee_id: m.employeeId,
+            employee_name: m.employeeName,
+            employee_role: m.employeeRole,
+            employee_profile: m.employeeProfile,
+            employee_profile_label: profileLabel(m.employeeProfile),
+            started_at: m.startedAt,
+            ended_at: m.endedAt,
+            duration_sec: m.durationSec,
+            duration_min: m.durationMin,
+            deviation_min: m.deviationMin,
+            deviation_percent: m.deviationPercent ?? "",
+            checked_items: (m.checkedItems || []).join(","),
+            checked_items_detailed_json: csvJson(detailed),
+            checked_item_ids: (m.selectedItemIds || detailed.map(item => item.id)).join(","),
+            operation_items_detailed_json: csvJson(m.operationItemsDetailed || detailed),
+            custom_items_count: customDetailed.length,
+            custom_item_ids: customDetailed.map(item => item.id).join(","),
+            custom_item_texts: customDetailed.map(item => item.text).join(" | "),
+            custom_item_reasons: customFullItems.map(item => item.reason || "").join(" | "),
+            custom_item_comments: customFullItems.map(item => item.customComment || item.comment || "").join(" | "),
+            comment: m.comment || "",
+            action_details_json: csvJson({ measurement: m })
+          });
+        });
+        const selectionRows = Object.keys(state.operationItemSelections || {}).map(operationId => {
+          const op = operationById(operationId);
+          const snapshot = operationItemsSnapshot(operationId);
+          const selected = snapshot.filter(item => item.selected);
+          return row({
+            record_type: "operation_selection",
+            event_id: `selection_${operationId}`,
+            event_type: "current_operation_item_selection",
+            event_at: isoNow(),
+            session_date: state.session.date,
+            auditor: state.session.auditor || state.session.assigneeName,
+            site: state.session.site,
+            operation_id: operationId,
+            operation_title: op?.title || "",
+            stage: op?.stage || "",
+            process_block: op?.processBlock || "",
+            deal_type: op?.dealType || "",
+            checked_items: selected.map(item => item.text).join(","),
+            checked_items_detailed_json: csvJson(selected),
+            checked_item_ids: selected.map(item => item.id).join(","),
+            operation_items_detailed_json: csvJson(snapshot),
+            action_details_json: csvJson({ operationId, selectedItemIds: selectedItemIds(operationId) })
+          });
+        });
+        const actionRows = (state.actionLog || []).map(action => {
+          const details = action.details || {};
+          const context = action.context || {};
+          const session = action.session || state.session;
+          const operationId = details.operationId || context.selectedOperationId || "";
+          const op = operationById(operationId);
+          const employee = details.employee || {};
+          return row({
+            record_type: "action",
+            event_id: action.id,
+            event_type: action.type,
+            event_at: action.occurredAt,
+            session_date: session.date,
+            auditor: session.auditor || session.assigneeName,
+            site: session.site,
+            operation_id: operationId,
+            operation_title: op?.title || context.selectedOperationTitle || "",
+            stage: op?.stage || "",
+            process_block: op?.processBlock || "",
+            deal_type: op?.dealType || "",
+            assignment_id: details.assignmentId || context.selectedAssignmentId || "",
+            assignee_key: details.assigneeKey || session.assigneeKey || "",
+            assignee_name: details.assigneeName || session.assigneeName || "",
+            employee_id: details.employeeId || employee.id || context.selectedEmployeeId || "",
+            employee_name: employee.name || context.selectedEmployeeName || "",
+            employee_role: employee.role || "",
+            employee_profile: employee.profile || "",
+            employee_profile_label: employee.profile !== undefined ? profileLabel(employee.profile) : "",
+            duration_sec: details.durationSec ?? details.elapsedSec ?? details.timer?.elapsedSec ?? "",
+            checked_item_ids: Array.isArray(details.selectedItemIds) ? details.selectedItemIds.join(",") : "",
+            action_details_json: csvJson({ context, details })
+          });
+        });
+        const rows = [...measurementRows, ...selectionRows, ...actionRows].filter(Boolean).join("\\n");
+        downloadFile(`${exportBaseFilename()}.csv`, "\\ufeff" + columns.join(";") + "\\n" + rows);
       };
       
       $("#exportSessionBtn").onclick = () => {
-         const payload = { version: "1.3-assignment-pool", state, timer, exportedAt: isoNow() };
-         downloadFile("session.json", JSON.stringify(payload, null, 2));
+         recordAction("export_session", {
+           measurementsCount: state.measurements.length,
+           actionLogCount: Array.isArray(state.actionLog) ? state.actionLog.length : 0
+         });
+         const payload = { version: "1.4-full-actions", state, timer, exportedAt: isoNow() };
+         downloadFile(`${exportBaseFilename()}_session.json`, JSON.stringify(payload, null, 2));
       };
 
-      $("#importSessionBtn").onclick = () => $("#importSessionInput").click();
+      $("#importSessionBtn").onclick = () => {
+        recordAction("session_import_dialog_opened");
+        $("#importSessionInput").click();
+      };
       $("#importSessionInput").onchange = (e) => {
         const f = e.target.files[0];
         if(!f) return;
@@ -2759,20 +3153,51 @@
             if(data.state) {
               state = hydrateState(data.state);
               timer = { ...defaultTimer(), ...(data.timer || {}) };
-              saveState(); saveTimer(); renderAll();
+              saveTimer();
+              recordAction("session_imported", {
+                fileName: f.name,
+                measurementsCount: state.measurements.length,
+                actionLogCount: Array.isArray(state.actionLog) ? state.actionLog.length : 0
+              });
+              renderAll();
               showNotice("Сессия успешно импортирована", "success");
             } else {
+              recordAction("session_import_failed", { fileName: f.name, reason: "bad_payload" });
               showNotice("Некорректный формат файла сессии", "danger");
             }
           } catch(err) {
+            recordAction("session_import_failed", { fileName: f.name, error: err.message });
             showNotice("Ошибка при чтении JSON", "danger");
           }
         };
         reader.readAsText(f);
       };
 
+      $("#measurementComment").oninput = (e) => {
+        state.measurementCommentDraft = e.target.value;
+        recordAction("measurement_comment_draft_updated", {
+          value: e.target.value,
+          operationId: timer.operationId || state.selectedOperationId,
+          employeeId: timer.employeeId || state.selectedEmployeeId
+        });
+      };
+
       $("#clearSessionBtn").onclick = () => {
-        if(prompt("Для очистки введите: ОЧИСТИТЬ") === "ОЧИСТИТЬ") { localStorage.clear(); location.reload(); }
+        if(prompt("Для очистки введите: ОЧИСТИТЬ") === "ОЧИСТИТЬ") {
+          const previousStats = {
+            employeesCount: state.employees.length,
+            measurementsCount: state.measurements.length,
+            actionLogCount: Array.isArray(state.actionLog) ? state.actionLog.length : 0
+          };
+          state = defaultState();
+          timer = defaultTimer();
+          recordAction("session_cleared", previousStats);
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(TIMER_KEY);
+          location.reload();
+        } else {
+          recordAction("session_clear_cancelled");
+        }
       };
 
       setMobileView(state.ui.mobileView || "measure");
