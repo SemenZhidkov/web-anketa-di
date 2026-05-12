@@ -286,6 +286,20 @@
     .operation-card-actions { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; margin-top: 8px; }
     .operation-card-actions button { min-height: 34px; padding: 6px 12px; font-size: 12px; }
     .custom-comment { width: 100%; font-size: 12px; color: var(--text-soft); line-height: 1.35; margin-top: 2px; }
+    .matched-items {
+      width: 100%;
+      display: grid;
+      gap: 6px;
+      padding: 10px 12px;
+      border: 1px solid var(--primary-border);
+      border-radius: var(--radius-md);
+      background: var(--primary-soft);
+      color: var(--text);
+      line-height: 1.35;
+    }
+    .matched-items-title { font-size: 12px; font-weight: 850; color: var(--primary-dark); }
+    .matched-items-list { display: grid; gap: 4px; margin: 0; padding-left: 18px; }
+    .matched-items-list li { font-size: 12px; color: var(--text); }
 
     /* Employee Screen */
     .employee-item { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; background: #ffffff; box-shadow: var(--shadow-xs); margin-bottom: 12px; }
@@ -594,7 +608,7 @@
             <button type="button" id="showAddCustomGroupBtn" class="ghost">+ Группа</button>
           </div>
           <div class="panel-body">
-            <input type="search" id="filterSearch" class="search-input" placeholder="Поиск по ID / названию...">
+            <input type="search" id="filterSearch" class="search-input" placeholder="Поиск по ID / группе / операции внутри группы...">
             
             <div class="muted-bold">Цель кредита:</div>
             <div class="chips-group" id="chipsDeal">
@@ -1255,6 +1269,17 @@
 
       function normalizeText(text) {
         return String(text || "").toLowerCase().replace(/\s+/g, " ").trim();
+      }
+
+      function operationItemSearchText(item) {
+        return normalizeText([
+          item.id,
+          item.text,
+          item.dealTag,
+          item.reason,
+          item.comment,
+          item.customComment
+        ].join(" "));
       }
 
       function escapeHtml(value) {
@@ -2052,33 +2077,38 @@
         renderMyCalendar();
 
         const list = $("#operationsList");
-        const query = state.filters.search.toLowerCase();
+        const query = normalizeText(state.filters.search);
         const deal = currentDealKey();
         const st = state.filters.stage;
         const cov = state.filters.status;
         const source = state.filters.source || "all";
         const assignmentScope = state.filters.assignmentScope || "my";
+        const effectiveAssignmentScope = query ? "my" : assignmentScope;
         const assignmentStatus = state.filters.assignmentStatus || "pending";
         const assigneeKey = state.session.assigneeKey;
         const assignmentOptions = {
-          assigneeKey: assignmentScope === "my" ? assigneeKey : "",
+          assigneeKey: effectiveAssignmentScope === "my" ? assigneeKey : "",
           creditGoalKey: deal
         };
 
         const filtered = getAllOperations().filter(o => {
+          if (query && !assigneeKey) return false;
           if (!operationMatchesDeal(o, deal)) return false;
           if (source === "base" && o.sourceType !== "base") return false;
           if (source === "custom" && o.sourceType !== "custom_group") return false;
           const opAssignments = getAssignmentsForOperation(o.id, assignmentOptions)
             .filter(a => assignmentMatchesDeal(a, deal))
             .filter(a => assignmentMatchesStatus(a, assignmentStatus));
-          if (assignmentScope === "my" && (!assigneeKey || !opAssignments.length)) return false;
-          if (assignmentScope === "all" && !opAssignments.length) return false;
-          if (assignmentScope === "unassigned") {
+          if (effectiveAssignmentScope === "my" && (!assigneeKey || !opAssignments.length)) return false;
+          if (effectiveAssignmentScope === "all" && !opAssignments.length) return false;
+          if (effectiveAssignmentScope === "unassigned") {
             const planned = getAssignmentsForOperation(o.id).filter(a => a.assignmentType === "planned");
             if (planned.length && o.sourceType !== "custom_group") return false;
           }
-          const haystack = [
+          const searchableItems = getOperationItems(o.id)
+            .filter(item => itemMatchesDeal(item, deal))
+            .map(operationItemSearchText);
+          const haystack = normalizeText([
             o.id,
             o.title,
             o.processBlock,
@@ -2086,8 +2116,9 @@
             o.coverageGroup,
             o.customMeta?.reason,
             o.customMeta?.description,
-            o.customMeta?.comment
-          ].join(" ").toLowerCase();
+            o.customMeta?.comment,
+            ...searchableItems
+          ].join(" "));
           if (query && !haystack.includes(query)) return false;
           if (st !== "all" && o.stage !== st) return false;
           const cp = coverageForOperation(o.id, deal);
@@ -2100,11 +2131,12 @@
         $("#operationCountBadge").textContent = filtered.length;
 
         if (!filtered.length) {
+          const assigneeMissingForSearch = query && !state.session.assigneeKey;
           list.innerHTML = `
             <div class="empty-note">
-              <p class="empty-note-title">${!state.session.assigneeKey && assignmentScope === "my" ? "Проверяющий не выбран" : "Операции не найдены"}</p>
-              <p class="empty-note-desc">${!state.session.assigneeKey && assignmentScope === "my" ? "Откройте раздел «Еще» и подтвердите проверяющего, чтобы увидеть персональный пул задач." : `Можно сбросить поиск, этап или покрытие. Текущая цель кредита: ${getCreditGoal(deal).shortLabel}.`}</p>
-              ${!state.session.assigneeKey && assignmentScope === "my" ? '<button type="button" class="primary switch-view" data-target="more">Выбрать проверяющего</button>' : ''}
+              <p class="empty-note-title">${assigneeMissingForSearch || (!state.session.assigneeKey && assignmentScope === "my") ? "Проверяющий не выбран" : "Операции не найдены"}</p>
+              <p class="empty-note-desc">${assigneeMissingForSearch || (!state.session.assigneeKey && assignmentScope === "my") ? "Откройте раздел «Еще» и подтвердите проверяющего, чтобы искать только в его пуле задач." : `Можно сбросить поиск, этап или покрытие. Текущая цель кредита: ${getCreditGoal(deal).shortLabel}.`}</p>
+              ${assigneeMissingForSearch || (!state.session.assigneeKey && assignmentScope === "my") ? '<button type="button" class="primary switch-view" data-target="more">Выбрать проверяющего</button>' : ''}
               <button type="button" class="primary" id="emptyAddCustomGroupBtn">+ Добавить фактическую группу</button>
             </div>
           `;
@@ -2121,6 +2153,22 @@
             .filter(a => assignmentScope === "unassigned" ? a.assignmentType !== "planned" : true)
             .filter(a => assignmentMatchesStatus(a, assignmentStatus))
             .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
+          const matchedItems = query ? getOperationItems(op.id)
+            .filter(item => itemMatchesDeal(item, deal))
+            .filter(item => operationItemSearchText(item).includes(query))
+            : [];
+          const matchedItemsVisible = matchedItems.slice(0, 6);
+          const matchedItemsHtml = matchedItems.length ? `
+            <div class="matched-items">
+              <div class="matched-items-title">Найдено в составе: ${matchedItems.length}</div>
+              <ol class="matched-items-list">
+                ${matchedItemsVisible.map(item => `
+                  <li>${escapeHtml(item.text)} ${item.dealTag ? `<span class="badge">${escapeHtml(item.dealTag)}</span>` : ""}${item.sourceType === "custom_item" ? ' <span class="badge">Добавлено проверяющим</span>' : ""}</li>
+                `).join("")}
+              </ol>
+              ${matchedItems.length > matchedItemsVisible.length ? `<div class="problem-desc">Еще ${matchedItems.length - matchedItemsVisible.length} совпад.</div>` : ""}
+            </div>
+          ` : "";
           const assignmentsHtml = assignments.length ? `
             <div class="custom-comment">
 	              <strong>Назначения:</strong>
@@ -2148,6 +2196,7 @@
                 <span>Строк: ${getOperationRowsCount(op.id)}</span>
                 <span>Менеджеры: ${cp.managersCount || 0}/${REQUIRED_MANAGER_COUNT}</span>
                 ${isCustom && op.customMeta?.comment ? `<span class="custom-comment">Комментарий: ${escapeHtml(op.customMeta.comment)}</span>` : ''}
+                ${matchedItemsHtml}
                 ${assignmentsHtml}
                 <button type="button" class="primary select-op-btn" data-id="${escapeAttr(op.id)}">Выбрать группу</button>
                 ${isCustom ? `
