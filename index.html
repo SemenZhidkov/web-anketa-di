@@ -1060,6 +1060,7 @@
         if (!["my", "all"].includes(next.filters.progressMode)) next.filters.progressMode = "my";
         normalizeStoredAssigneeNames(next);
         dedupeCustomEntityIds(next);
+        restoreOperationItemSelections(next);
         return next;
       }
 
@@ -1233,6 +1234,39 @@
           (measurement.checkedItemsDetailed || []).forEach(item => {
             if (itemIdMap[item.id]) item.id = itemIdMap[item.id];
           });
+        });
+      }
+
+      function measurementSelectedItemIds(measurement) {
+        if (!measurement || typeof measurement !== "object") return [];
+        const ids = [
+          ...(Array.isArray(measurement.selectedItemIds) ? measurement.selectedItemIds : []),
+          ...(Array.isArray(measurement.selectedItemsDetailed) ? measurement.selectedItemsDetailed.map(item => item.id) : []),
+          ...(Array.isArray(measurement.operationItemsDetailed) ? measurement.operationItemsDetailed.filter(item => item.selected).map(item => item.id) : []),
+          ...(Array.isArray(measurement.checkedItemsDetailed) ? measurement.checkedItemsDetailed.map(item => item.id) : [])
+        ].filter(Boolean).map(String);
+        return [...new Set(ids)];
+      }
+
+      function restoreOperationItemSelections(nextState) {
+        if (!nextState.operationItemSelections || typeof nextState.operationItemSelections !== "object") {
+          nextState.operationItemSelections = {};
+        }
+        const latestByOperation = new Map();
+        (nextState.measurements || []).forEach(measurement => {
+          const operationId = measurement?.operationId;
+          if (!operationId) return;
+          const selectedIds = measurementSelectedItemIds(measurement);
+          if (!selectedIds.length) return;
+          const current = latestByOperation.get(operationId);
+          const currentTime = current ? new Date(current.createdAt || current.endedAt || 0).getTime() : -1;
+          const nextTime = new Date(measurement.createdAt || measurement.endedAt || 0).getTime();
+          if (!current || nextTime >= currentTime) latestByOperation.set(operationId, measurement);
+        });
+        latestByOperation.forEach((measurement, operationId) => {
+          const existing = nextState.operationItemSelections[operationId];
+          if (Array.isArray(existing) && existing.length) return;
+          nextState.operationItemSelections[operationId] = measurementSelectedItemIds(measurement);
         });
       }
 
