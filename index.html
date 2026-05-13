@@ -332,6 +332,22 @@
     .analysis-toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
     .analysis-toolbar button { flex: 1 1 160px; }
     .analysis-section-note { margin-top: 6px; font-size: 12px; color: var(--text-soft); line-height: 1.4; }
+    .analysis-dashboard { display: grid; gap: 12px; margin-top: 14px; }
+    .coverage-hero { border: 1px solid var(--primary-border); border-radius: var(--radius-md); background: #f7fbf8; padding: 16px; box-shadow: var(--shadow-xs); }
+    .coverage-hero-top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .coverage-title { font-size: 15px; font-weight: 850; color: var(--text); }
+    .coverage-percent { font-size: 28px; line-height: 1; font-weight: 900; color: var(--primary-dark); }
+    .coverage-bar { height: 12px; overflow: hidden; border-radius: 999px; background: #e6ebe8; margin-top: 12px; }
+    .coverage-bar-fill { height: 100%; border-radius: inherit; background: var(--primary); transition: width 0.25s ease; }
+    .coverage-dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .coverage-card { border: 1px solid var(--line); border-radius: var(--radius-md); background: #ffffff; padding: 12px; box-shadow: var(--shadow-xs); }
+    .coverage-card-title { font-size: 13px; font-weight: 850; color: var(--text); margin-bottom: 6px; }
+    .coverage-card-value { font-size: 22px; line-height: 1.1; font-weight: 900; color: var(--text); }
+    .coverage-card-desc { margin-top: 5px; font-size: 12px; color: var(--text-soft); line-height: 1.35; }
+    .coverage-mini-list { display: grid; gap: 8px; }
+    .coverage-mini-row { display: grid; gap: 5px; }
+    .coverage-mini-row-top { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 800; color: var(--text); }
+    .coverage-mini-row-meta { font-size: 11px; color: var(--text-soft); }
 
     /* Checklist */
     .items-list { border: 0; border-radius: 0; overflow: visible; display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -511,7 +527,7 @@
           </select>
         </label>
         <label>Подробное описание <textarea id="customGroupDescription" required></textarea></label>
-        <label>Комментарий проверяющего <textarea id="customGroupComment" required></textarea></label>
+        <label>Комментарий проверяющего (необязательно) <textarea id="customGroupComment"></textarea></label>
 
         <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));">
           <label>Похожая базовая группа <select id="customGroupSimilarBase"></select></label>
@@ -582,7 +598,7 @@
           <option value="уточн.">
         </datalist>
 
-        <label>Комментарий проверяющего <textarea id="customItemComment" required></textarea></label>
+        <label>Комментарий проверяющего (необязательно) <textarea id="customItemComment"></textarea></label>
         <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));">
           <label>Похожая строка в группе <select id="customItemSimilarBase"></select></label>
           <label>Регулярность
@@ -622,6 +638,7 @@
           </div>
           <div class="panel-body">
             <input type="search" id="filterSearch" class="search-input" placeholder="Поиск по ID / группе / операции внутри группы...">
+            <button type="button" class="ghost mt-4 w-full" id="clearOperationFiltersBtn">Очистить фильтры и поиск</button>
             
             <div class="muted-bold">Цель кредита:</div>
             <div class="chips-group" id="chipsDeal">
@@ -746,11 +763,20 @@
               <button type="button" id="timerPauseBtn">Пауза</button>
               <button type="button" class="primary hidden" id="timerResumeBtn">Продолжить</button>
               <button type="button" class="danger" style="color:var(--danger)" id="timerFinishBtn">Завершить</button>
+              <button type="button" class="ghost hidden" id="timerStashBtn">Отложить</button>
             </div>
             
             <div class="text-center mt-4">
               <button type="button" id="timerResetBtn" class="ghost hidden">Сбросить текущий замер</button>
             </div>
+          </div>
+
+          <div class="panel hidden" id="pausedTimersPanel">
+            <div class="panel-header">
+              <h3>Отложенные замеры</h3>
+              <span class="badge" id="pausedTimersCount">0</span>
+            </div>
+            <div class="panel-body" id="pausedTimersList"></div>
           </div>
 
           <div class="panel" id="liveCommentPanel">
@@ -841,6 +867,9 @@
             <input type="file" id="importAnalysisInput" accept="application/json,.json" multiple class="hidden">
             <p class="meta-line-text mt-4" id="analysisImportNote"></p>
 
+            <h3 class="mt-4 mb-2">Дашборд общего охвата</h3>
+            <div id="analysisCoverageDashboard" class="analysis-dashboard"></div>
+
             <div class="muted-bold mt-4">Фильтры анализа:</div>
             <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
               <label>Проверяющий <select id="analysisAuditorFilter"></select></label>
@@ -860,6 +889,7 @@
               <label class="check-option"><input type="checkbox" id="analysisCommentsOnly"> Только с комментариями</label>
               <label class="check-option"><input type="checkbox" id="analysisSelectedOnly"> Только с выбранными операциями</label>
             </div>
+            <button type="button" class="ghost mt-4 w-full" id="clearAnalysisFiltersBtn">Очистить фильтры и поиск</button>
 
             <h3 class="mt-4 mb-2">Общая сводка</h3>
             <div class="problem-list" id="analysisSummaryList"></div>
@@ -1012,6 +1042,7 @@
         operationItemSelections: {},
         actionLog: [],
         analysis: defaultAnalysisState(),
+        pausedTimers: [],
         measurementCommentDraft: "",
         selectedEmployeeId: "",
         selectedOperationId: operations[0] ? operations[0].id : "",
@@ -1020,7 +1051,7 @@
       });
 
       const defaultTimer = () => ({
-        operationId: "", employeeId: "", startedAt: "", runningSince: "", elapsedBeforePauseSec: 0, status: "idle"
+        id: "", operationId: "", employeeId: "", assignmentId: "", creditGoalKey: "", startedAt: "", runningSince: "", elapsedBeforePauseSec: 0, status: "idle", pausedAt: "", commentDraft: "", selectedItemIds: []
       });
 
       let state = loadState();
@@ -1141,6 +1172,84 @@
         return Math.floor(base + Math.max(0, (Date.now() - new Date(source.runningSince).getTime()) / 1000));
       }
 
+      function pausedTimers() {
+        if (!Array.isArray(state.pausedTimers)) state.pausedTimers = [];
+        return state.pausedTimers;
+      }
+
+      function timerAssignment(source = timer) {
+        return source.assignmentId ? assignmentById(source.assignmentId) : null;
+      }
+
+      function stashPausedTimer(reason = "manual", details = {}) {
+        if (timer.status !== "paused") return false;
+        if (timer.operationId) syncChecklistSelection(timer.operationId);
+        const stashed = {
+          ...defaultTimer(),
+          ...timer,
+          id: timer.id || uniqueId("paused_timer"),
+          assignmentId: timer.assignmentId || state.selectedAssignmentId || "",
+          creditGoalKey: timer.creditGoalKey || currentDealKey(),
+          elapsedBeforePauseSec: getElapsedSec(timer),
+          runningSince: "",
+          status: "paused",
+          pausedAt: isoNow(),
+          commentDraft: state.measurementCommentDraft || timer.commentDraft || "",
+          selectedItemIds: selectedItemIds(timer.operationId)
+        };
+        state.pausedTimers = pausedTimers().filter(t => t.id !== stashed.id);
+        state.pausedTimers.push(stashed);
+        timer = defaultTimer();
+        state.measurementCommentDraft = "";
+        saveTimer();
+        recordAction("timer_stashed", { reason, timer: stashed, ...details });
+        return true;
+      }
+
+      function restorePausedTimer(timerId) {
+        if (timer.status === "running") {
+          recordAction("paused_timer_restore_blocked", { timerId, reason: "active_running_timer" });
+          showNotice("Сначала поставьте текущий замер на паузу или завершите его", "warning");
+          return;
+        }
+        if (timer.status === "paused") {
+          stashPausedTimer("restore_other_timer", { nextTimerId: timerId });
+        }
+        const paused = pausedTimers().find(t => t.id === timerId);
+        if (!paused) {
+          recordAction("paused_timer_restore_failed", { timerId, reason: "not_found" });
+          showNotice("Отложенный замер не найден", "warning");
+          return;
+        }
+        state.pausedTimers = pausedTimers().filter(t => t.id !== timerId);
+        timer = hydratePausedTimer(paused);
+        state.selectedOperationId = timer.operationId || state.selectedOperationId;
+        state.selectedEmployeeId = timer.employeeId || state.selectedEmployeeId;
+        state.selectedAssignmentId = timer.assignmentId || "";
+        if (timer.creditGoalKey && CREDIT_GOALS[timer.creditGoalKey]) state.filters.deal = timer.creditGoalKey;
+        state.measurementCommentDraft = timer.commentDraft || "";
+        if (timer.operationId && Array.isArray(timer.selectedItemIds)) {
+          if (timer.selectedItemIds.length) state.operationItemSelections[timer.operationId] = timer.selectedItemIds;
+          else delete state.operationItemSelections[timer.operationId];
+        }
+        saveTimer();
+        recordAction("paused_timer_restored", { timerId, operationId: timer.operationId, employeeId: timer.employeeId, assignmentId: timer.assignmentId });
+        renderAll();
+        setMobileView("measure");
+      }
+
+      function discardPausedTimer(timerId) {
+        const paused = pausedTimers().find(t => t.id === timerId);
+        if (!paused) return;
+        if (!confirm("Удалить отложенный замер без сохранения?")) {
+          recordAction("paused_timer_discard_cancelled", { timerId });
+          return;
+        }
+        state.pausedTimers = pausedTimers().filter(t => t.id !== timerId);
+        recordAction("paused_timer_discarded", { timerId, timer: paused });
+        renderAll();
+      }
+
       function formatDuration(seconds) {
         const t = Math.max(0, Math.floor(seconds || 0));
         return `${String(Math.floor(t / 3600)).padStart(2,"0")}:${String(Math.floor((t % 3600) / 60)).padStart(2,"0")}:${String(t % 60).padStart(2,"0")}`;
@@ -1189,6 +1298,7 @@
           operationItemSelections: saved.operationItemSelections && typeof saved.operationItemSelections === "object" ? saved.operationItemSelections : {},
           actionLog: Array.isArray(saved.actionLog) ? saved.actionLog : [],
           analysis: hydrateAnalysis(saved.analysis),
+          pausedTimers: Array.isArray(saved.pausedTimers) ? saved.pausedTimers.map(hydratePausedTimer).filter(t => t.status === "paused") : [],
           measurementCommentDraft: typeof saved.measurementCommentDraft === "string" ? saved.measurementCommentDraft : "",
           selectedAssignmentId: saved.selectedAssignmentId || ""
         };
@@ -1201,6 +1311,15 @@
         normalizeStoredAssigneeNames(next);
         dedupeCustomEntityIds(next);
         restoreOperationItemSelections(next);
+        return next;
+      }
+
+      function hydratePausedTimer(saved) {
+        const next = { ...defaultTimer(), ...(saved || {}) };
+        next.id = next.id || uniqueId("paused_timer");
+        next.status = "paused";
+        next.runningSince = "";
+        next.elapsedBeforePauseSec = Number(next.elapsedBeforePauseSec || 0);
         return next;
       }
 
@@ -1574,7 +1693,8 @@
       }
 
       function assignmentStatusLabel(assignment) {
-        if (timer.status !== "idle" && timer.operationId === assignment.operationId && state.selectedAssignmentId === assignment.id) return "в работе";
+        if (timer.status !== "idle" && timer.operationId === assignment.operationId && (timer.assignmentId === assignment.id || state.selectedAssignmentId === assignment.id)) return timer.status === "paused" ? "пауза" : "в работе";
+        if (pausedTimers().some(t => t.assignmentId === assignment.id)) return "пауза";
         return assignmentIsCompleted(assignment.id) ? "выполнено" : "не выполнено";
       }
 
@@ -1584,11 +1704,15 @@
           recordAction("assignment_select_failed", { assignmentId, reason: "not_found" });
           return showNotice("Назначение не найдено", "warning");
         }
-        if (timer.status !== "idle" && timer.operationId !== assignment.operationId) {
+        const timerMatchesAssignment = timer.operationId === assignment.operationId && (!timer.assignmentId || timer.assignmentId === assignment.id);
+        if (timer.status === "running" && !timerMatchesAssignment) {
           setMobileView("measure");
           recordAction("assignment_select_blocked", { assignmentId, activeTimerOperationId: timer.operationId });
-          showNotice("Сначала завершите текущий замер!", "warning");
+          showNotice("Сначала поставьте текущий замер на паузу или завершите его", "warning");
           return;
+        }
+        if (timer.status === "paused" && !timerMatchesAssignment) {
+          stashPausedTimer("select_another_assignment", { nextAssignmentId: assignment.id, nextOperationId: assignment.operationId });
         }
         const previousAssignmentId = state.selectedAssignmentId;
         const previousOperationId = state.selectedOperationId;
@@ -1686,6 +1810,19 @@
       }
 
       function ensureSelectedAssignment() {
+        if (timer.status !== "idle") {
+          if (timer.assignmentId) {
+            const assignment = timerAssignment();
+            if (assignment) {
+              state.selectedAssignmentId = assignment.id;
+              state.selectedOperationId = assignment.operationId;
+              if (timer.creditGoalKey && CREDIT_GOALS[timer.creditGoalKey]) state.filters.deal = timer.creditGoalKey;
+              saveState();
+            }
+          }
+          return;
+        }
+
         const assignmentCandidate = activeAssignment();
         const assignment = assignmentCandidate && assignmentCandidate.operationId === state.selectedOperationId ? assignmentCandidate : null;
         if (assignment) {
@@ -2185,6 +2322,45 @@
         if (liveComment && document.activeElement !== liveComment) {
           liveComment.value = state.measurementCommentDraft || "";
         }
+        renderPausedTimersPanel();
+      }
+
+      function renderPausedTimersPanel() {
+        const panel = $("#pausedTimersPanel");
+        const list = $("#pausedTimersList");
+        const count = $("#pausedTimersCount");
+        if (!panel || !list) return;
+        const timers = pausedTimers().slice().sort((a, b) => measurementTimestamp(b) - measurementTimestamp(a));
+        panel.classList.toggle("hidden", !timers.length);
+        if (count) count.textContent = timers.length;
+        list.innerHTML = timers.length ? `
+          <div class="problem-list" style="margin-top:0;">
+            ${timers.map(t => {
+              const op = operationById(t.operationId);
+              const emp = state.employees.find(e => e.id === t.employeeId);
+              const assignment = timerAssignment(t);
+              const goalLabel = assignment?.creditGoalLabel || (t.creditGoalKey && CREDIT_GOALS[t.creditGoalKey] ? getCreditGoal(t.creditGoalKey).label : "Цель не указана");
+              return `
+                <div class="problem-item progress-result">
+                  <div class="progress-result-main">
+                    <div class="meta-line mb-2">
+                      <span class="badge">${escapeHtml(t.operationId || "без группы")}</span>
+                      <span class="badge">${escapeHtml(goalLabel)}</span>
+                      <span class="status-pill partial">Пауза ${formatDuration(t.elapsedBeforePauseSec)}</span>
+                    </div>
+                    <div class="problem-title">${escapeHtml(op?.title || "Группа без названия")}</div>
+                    <div class="problem-desc">${escapeHtml(emp?.name || "менеджер не выбран")}${assignment ? ` · ${escapeHtml(assignment.id)} · замер ${assignment.measurementNo ?? "-"}` : ""}</div>
+                    ${t.commentDraft ? `<div class="latest-comment">${escapeHtml(t.commentDraft)}</div>` : ""}
+                  </div>
+                  <div class="operation-card-actions">
+                    <button type="button" class="primary restore-paused-timer-btn" data-id="${escapeAttr(t.id)}">Вернуться</button>
+                    <button type="button" class="ghost discard-paused-timer-btn" data-id="${escapeAttr(t.id)}">Удалить</button>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        ` : "";
       }
 
       function updateChecklistCount() {
@@ -2229,6 +2405,7 @@
         $("#timerResetBtn").classList.toggle("hidden", timer.status === "idle");
         $("#timerPauseBtn").classList.toggle("hidden", timer.status !== "running");
         $("#timerResumeBtn").classList.toggle("hidden", timer.status !== "paused");
+        $("#timerStashBtn").classList.toggle("hidden", timer.status !== "paused");
         $("#showAddCustomItemBtn").disabled = false;
 
         if (timer.status === "running") {
@@ -2272,7 +2449,7 @@
             <div class="problem-list">
               ${grouped[date].map(a => {
                 const status = assignmentStatusLabel(a);
-                const cls = status === "выполнено" ? "complete" : status === "в работе" ? "partial" : "empty";
+                const cls = status === "выполнено" ? "complete" : ["в работе", "пауза"].includes(status) ? "partial" : "empty";
 	                return `
 	                  <div class="problem-item assignment-task" data-assignment-id="${escapeAttr(a.id)}" role="button" tabindex="0">
 	                    <div>
@@ -2289,6 +2466,8 @@
       }
 
       function renderOperationsTab() {
+        const searchInput = $("#filterSearch");
+        if (searchInput && searchInput.value !== (state.filters.search || "")) searchInput.value = state.filters.search || "";
         document.querySelectorAll("#chipsDeal .chip").forEach(c => c.classList.toggle("active", c.dataset.val === currentDealKey()));
         document.querySelectorAll("#chipsStage .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.stage));
         document.querySelectorAll("#chipsStatus .chip").forEach(c => c.classList.toggle("active", c.dataset.val === state.filters.status));
@@ -2833,6 +3012,167 @@
         };
       }
 
+      function percentValue(done, total) {
+        if (!total) return 0;
+        return Math.max(0, Math.min(100, Number((done / total * 100).toFixed(1))));
+      }
+
+      function analysisPlanAssignments() {
+        return getAllAssignments().filter(a => a.assignmentType === "planned");
+      }
+
+      function analysisScopeKey(operationId, goalKey) {
+        return `${operationId || "Без группы"}__${goalKey || "no_goal"}`;
+      }
+
+      function analysisAssignmentScopeKey(assignment) {
+        return analysisScopeKey(assignment.operationId, assignment.creditGoalKey);
+      }
+
+      function analysisMeasurementScopeKey(measurement) {
+        return analysisScopeKey(measurement.operationId, analysisGoalKey(measurement));
+      }
+
+      function buildAnalysisCoverageDashboard(measurements = state.analysis?.measurements || []) {
+        const planned = analysisPlanAssignments();
+        const plannedById = new Map(planned.map(assignment => [assignment.id, assignment]));
+        const measurementsByAssignment = new Map();
+        const outOfPlanMeasurements = [];
+
+        measurements.forEach(measurement => {
+          const assignmentId = measurement.assignmentId || "";
+          if (assignmentId && plannedById.has(assignmentId)) {
+            if (!measurementsByAssignment.has(assignmentId)) measurementsByAssignment.set(assignmentId, []);
+            measurementsByAssignment.get(assignmentId).push(measurement);
+          } else {
+            outOfPlanMeasurements.push(measurement);
+          }
+        });
+
+        const completedIds = new Set(measurementsByAssignment.keys());
+        const completedAssignments = planned.filter(assignment => completedIds.has(assignment.id));
+        const pendingAssignments = planned.filter(assignment => !completedIds.has(assignment.id));
+        const plannedMinutes = planned.reduce((sum, assignment) => sum + Number(assignment.timingMinutes || 0), 0);
+        const completedMinutes = completedAssignments.reduce((sum, assignment) => sum + Number(assignment.timingMinutes || 0), 0);
+
+        const scopeMap = new Map();
+        planned.forEach(assignment => {
+          const key = analysisAssignmentScopeKey(assignment);
+          if (!scopeMap.has(key)) {
+            const operation = operationById(assignment.operationId);
+            scopeMap.set(key, {
+              key,
+              operationId: assignment.operationId,
+              operationTitle: assignment.operationTitle || operation?.title || "Группа без названия",
+              creditGoalKey: assignment.creditGoalKey,
+              creditGoalLabel: assignment.creditGoalLabel || (CREDIT_GOALS[assignment.creditGoalKey] ? getCreditGoal(assignment.creditGoalKey).label : "Цель не указана"),
+              assignments: [],
+              completedAssignments: 0,
+              managers: new Set(),
+              auditors: new Set(),
+              measurements: []
+            });
+          }
+          scopeMap.get(key).assignments.push(assignment);
+        });
+
+        measurements.forEach(measurement => {
+          const key = analysisMeasurementScopeKey(measurement);
+          const scope = scopeMap.get(key);
+          if (!scope) return;
+          scope.measurements.push(measurement);
+          const managerKey = measurement.employeeId || measurement.employeeName || "";
+          if (managerKey) scope.managers.add(measurement.employeeName || managerKey);
+          if (measurement.analysisAuditorName) scope.auditors.add(measurement.analysisAuditorName);
+        });
+
+        scopeMap.forEach(scope => {
+          scope.completedAssignments = scope.assignments.filter(assignment => completedIds.has(assignment.id)).length;
+        });
+
+        const scopes = Array.from(scopeMap.values()).map(scope => ({
+          ...scope,
+          assignmentsCount: scope.assignments.length,
+          pendingAssignments: Math.max(0, scope.assignments.length - scope.completedAssignments),
+          managersCount: scope.managers.size,
+          auditorsCount: scope.auditors.size,
+          coveragePercent: percentValue(scope.completedAssignments, scope.assignments.length),
+          fullByManagers: scope.managers.size >= REQUIRED_MANAGER_COUNT,
+          managers: Array.from(scope.managers),
+          auditors: Array.from(scope.auditors)
+        }));
+
+        const goalRows = CUSTOM_GOAL_KEYS.map(goalKey => {
+          const goalAssignments = planned.filter(assignment => assignment.creditGoalKey === goalKey);
+          const goalCompleted = goalAssignments.filter(assignment => completedIds.has(assignment.id));
+          const goalScopes = scopes.filter(scope => scope.creditGoalKey === goalKey);
+          const goalMeasurements = measurements.filter(measurement => analysisGoalKey(measurement) === goalKey);
+          return {
+            goalKey,
+            goalLabel: getCreditGoal(goalKey).label,
+            total: goalAssignments.length,
+            completed: goalCompleted.length,
+            pending: Math.max(0, goalAssignments.length - goalCompleted.length),
+            percent: percentValue(goalCompleted.length, goalAssignments.length),
+            scopesTotal: goalScopes.length,
+            scopesCovered: goalScopes.filter(scope => scope.completedAssignments > 0).length,
+            scopesFullManagers: goalScopes.filter(scope => scope.fullByManagers).length,
+            avgSec: durationStats(goalMeasurements).avgSec
+          };
+        });
+
+        const assigneeRows = AUDIT_ASSIGNEES.map(assignee => {
+          const assigneeAssignments = planned.filter(assignment => assignment.assigneeKey === assignee.key);
+          const completed = assigneeAssignments.filter(assignment => completedIds.has(assignment.id));
+          return {
+            key: assignee.key,
+            label: assignee.label,
+            total: assigneeAssignments.length,
+            completed: completed.length,
+            pending: Math.max(0, assigneeAssignments.length - completed.length),
+            percent: percentValue(completed.length, assigneeAssignments.length)
+          };
+        }).filter(row => row.total > 0)
+          .sort((a, b) => a.percent - b.percent || b.total - a.total || a.label.localeCompare(b.label));
+
+        const pendingPriorityWeight = assignment => String(assignment.priority || "").startsWith("A") ? 0 : 1;
+        const topPending = pendingAssignments
+          .slice()
+          .sort((a, b) => pendingPriorityWeight(a) - pendingPriorityWeight(b) || String(a.date || "").localeCompare(String(b.date || "")) || a.operationId.localeCompare(b.operationId))
+          .slice(0, 10);
+
+        const managerGaps = scopes
+          .filter(scope => !scope.fullByManagers)
+          .sort((a, b) => a.managersCount - b.managersCount || b.pendingAssignments - a.pendingAssignments || a.operationId.localeCompare(b.operationId))
+          .slice(0, 10);
+
+        return {
+          plannedTotal: planned.length,
+          completedTotal: completedAssignments.length,
+          pendingTotal: pendingAssignments.length,
+          assignmentPercent: percentValue(completedAssignments.length, planned.length),
+          plannedMinutes,
+          completedMinutes,
+          minutesPercent: percentValue(completedMinutes, plannedMinutes),
+          importedMeasurements: measurements.length,
+          outOfPlanMeasurements: outOfPlanMeasurements.length,
+          plannedScopesTotal: scopes.length,
+          coveredScopes: scopes.filter(scope => scope.completedAssignments > 0).length,
+          fullManagerScopes: scopes.filter(scope => scope.fullByManagers).length,
+          scopePercent: percentValue(scopes.filter(scope => scope.completedAssignments > 0).length, scopes.length),
+          fullManagerPercent: percentValue(scopes.filter(scope => scope.fullByManagers).length, scopes.length),
+          goalRows,
+          assigneeRows,
+          topPending,
+          managerGaps
+        };
+      }
+
+      function renderCoverageBar(percent) {
+        const safe = Math.max(0, Math.min(100, Number(percent) || 0));
+        return `<div class="coverage-bar" aria-label="Прогресс ${safe}%" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${safe}"><div class="coverage-bar-fill" style="width:${safe}%"></div></div>`;
+      }
+
       function renderProgressTab() {
         document.querySelectorAll("#chipsProgressMode .chip").forEach(c => c.classList.toggle("active", c.dataset.val === (state.filters.progressMode || "my")));
         const progressMode = state.filters.progressMode || "my";
@@ -2931,6 +3271,107 @@
         `;
       }
 
+      function renderAnalysisCoverageDashboard(dashboard) {
+        const plannedSec = Math.round((dashboard.plannedMinutes || 0) * 60);
+        const completedSec = Math.round((dashboard.completedMinutes || 0) * 60);
+        const goalRowsHtml = dashboard.goalRows.map(goal => `
+          <div class="coverage-mini-row">
+            <div class="coverage-mini-row-top">
+              <span>${escapeHtml(goal.goalLabel)}</span>
+              <span>${goal.completed}/${goal.total} · ${goal.percent}%</span>
+            </div>
+            ${renderCoverageBar(goal.percent)}
+            <div class="coverage-mini-row-meta">DI-целей покрыто: ${goal.scopesCovered}/${goal.scopesTotal}; с 3 менеджерами: ${goal.scopesFullManagers}/${goal.scopesTotal}${goal.avgSec ? `; ср. факт ${formatDuration(goal.avgSec)}` : ""}</div>
+          </div>
+        `).join("");
+
+        const assigneeRowsHtml = dashboard.assigneeRows.slice(0, 7).map(row => `
+          <div class="coverage-mini-row">
+            <div class="coverage-mini-row-top">
+              <span>${escapeHtml(row.label)}</span>
+              <span>${row.completed}/${row.total} · ${row.percent}%</span>
+            </div>
+            ${renderCoverageBar(row.percent)}
+            <div class="coverage-mini-row-meta">Осталось назначений: ${row.pending}</div>
+          </div>
+        `).join("");
+
+        const pendingHtml = dashboard.topPending.length ? dashboard.topPending.map(assignment => `
+          <div class="problem-desc">
+            <strong>${escapeHtml(assignment.operationId)}</strong> · ${escapeHtml(assignment.creditGoalLabel || "")} · замер ${assignment.measurementNo ?? "-"} · ${escapeHtml(assignment.assigneeName || "")} · ${assignmentDateLabel(assignment.date)}
+          </div>
+        `).join("") : `<div class="problem-desc">Плановые назначения закрыты.</div>`;
+
+        const managerGapsHtml = dashboard.managerGaps.length ? dashboard.managerGaps.map(scope => `
+          <div class="problem-desc">
+            <strong>${escapeHtml(scope.operationId)}</strong> · ${escapeHtml(scope.creditGoalLabel)} · менеджеры ${scope.managersCount}/${REQUIRED_MANAGER_COUNT} · план ${scope.completedAssignments}/${scope.assignmentsCount}
+          </div>
+        `).join("") : `<div class="problem-desc">Все DI-цели набрали ${REQUIRED_MANAGER_COUNT} менеджеров.</div>`;
+
+        $("#analysisCoverageDashboard").innerHTML = `
+          <div class="coverage-hero">
+            <div class="coverage-hero-top">
+              <div>
+                <div class="coverage-title">Общий охват плановых назначений</div>
+                <div class="problem-desc mt-2">Финальная цель: закрыть все плановые замеры из календаря. Импортированные файлы коллег засчитываются по ID назначения.</div>
+              </div>
+              <div class="coverage-percent">${dashboard.assignmentPercent}%</div>
+            </div>
+            ${renderCoverageBar(dashboard.assignmentPercent)}
+            <div class="result-stats">
+              <span class="result-stat"><strong>${dashboard.completedTotal}/${dashboard.plannedTotal}</strong><span>назначений</span></span>
+              <span class="result-stat"><strong>${dashboard.pendingTotal}</strong><span>осталось</span></span>
+              <span class="result-stat"><strong>${formatDuration(completedSec)} / ${formatDuration(plannedSec)}</strong><span>планового времени</span></span>
+              <span class="result-stat"><strong>${dashboard.importedMeasurements}</strong><span>импортировано замеров</span></span>
+              <span class="result-stat"><strong>${dashboard.outOfPlanMeasurements}</strong><span>вне плана</span></span>
+            </div>
+          </div>
+
+          <div class="coverage-dashboard-grid">
+            <div class="coverage-card">
+              <div class="coverage-card-title">Покрыто DI-целей</div>
+              <div class="coverage-card-value">${dashboard.coveredScopes}/${dashboard.plannedScopesTotal}</div>
+              ${renderCoverageBar(dashboard.scopePercent)}
+              <div class="coverage-card-desc">${dashboard.scopePercent}% DI-групп/целей имеют хотя бы один замер.</div>
+            </div>
+            <div class="coverage-card">
+              <div class="coverage-card-title">DI-цели с 3 менеджерами</div>
+              <div class="coverage-card-value">${dashboard.fullManagerScopes}/${dashboard.plannedScopesTotal}</div>
+              ${renderCoverageBar(dashboard.fullManagerPercent)}
+              <div class="coverage-card-desc">${dashboard.fullManagerPercent}% DI-групп/целей набрали нужный состав менеджеров.</div>
+            </div>
+            <div class="coverage-card">
+              <div class="coverage-card-title">Плановое время закрыто</div>
+              <div class="coverage-card-value">${dashboard.minutesPercent}%</div>
+              ${renderCoverageBar(dashboard.minutesPercent)}
+              <div class="coverage-card-desc">Закрыто ${formatDuration(completedSec)} из ${formatDuration(plannedSec)} планового объема.</div>
+            </div>
+          </div>
+
+          <div class="coverage-dashboard-grid">
+            <div class="coverage-card">
+              <div class="coverage-card-title">Прогресс по целям кредита</div>
+              <div class="coverage-mini-list">${goalRowsHtml}</div>
+            </div>
+            <div class="coverage-card">
+              <div class="coverage-card-title">Проверяющие с наименьшим закрытием</div>
+              <div class="coverage-mini-list">${assigneeRowsHtml || '<div class="problem-desc">Плановых проверяющих нет.</div>'}</div>
+            </div>
+          </div>
+
+          <div class="coverage-dashboard-grid">
+            <div class="coverage-card">
+              <div class="coverage-card-title">Ближайшие незакрытые назначения</div>
+              <div class="coverage-mini-list">${pendingHtml}</div>
+            </div>
+            <div class="coverage-card">
+              <div class="coverage-card-title">DI-цели без полного состава менеджеров</div>
+              <div class="coverage-mini-list">${managerGapsHtml}</div>
+            </div>
+          </div>
+        `;
+      }
+
       function renderAnalysisTab() {
         if (!state.analysis) state.analysis = defaultAnalysisState();
         const analysis = state.analysis;
@@ -2938,6 +3379,7 @@
         const all = analysis.measurements || [];
         const filtered = analysisFilteredMeasurements();
         const aggregate = buildAnalysisAggregate(filtered);
+        const coverageDashboard = buildAnalysisCoverageDashboard(all);
         const summary = aggregate.summary;
 
         renderAnalysisSelect("#analysisAuditorFilter", all.map(m => ({ value: m.analysisAuditorName || "Не указан", label: m.analysisAuditorName || "Не указан" })), filters.auditor, "Все проверяющие");
@@ -2961,6 +3403,7 @@
         $("#analysisImportNote").textContent = all.length
           ? `В аналитической базе ${all.length} замеров из ${(analysis.importedFiles || []).length} файлов. После фильтров отображается ${filtered.length} замеров.`
           : "Загрузите один или несколько JSON-файлов сессий коллег, чтобы собрать общую динамику.";
+        renderAnalysisCoverageDashboard(coverageDashboard);
         const latestImportedFiles = (analysis.importedFiles || [])
           .slice(-5)
           .reverse()
@@ -3194,7 +3637,6 @@
         if (!payload.role) return "Укажите роль";
         if (!payload.creditGoals.length) return "Выберите хотя бы одну цель кредита";
         if (!payload.description) return "Заполните подробное описание";
-        if (!payload.comment) return "Заполните комментарий проверяющего";
         return "";
       }
 
@@ -3247,7 +3689,6 @@
         if (!payload.parentOperationId) return "Не выбрана родительская группа";
         if (!payload.text) return "Укажите текст операции";
         if (!payload.creditGoals.length) return "Выберите хотя бы одну цель кредита";
-        if (!payload.comment) return "Заполните комментарий проверяющего";
         return "";
       }
 
@@ -3306,11 +3747,27 @@
           return;
         }
 
+        const restorePaused = e.target.closest(".restore-paused-timer-btn");
+        if (restorePaused) {
+          restorePausedTimer(restorePaused.dataset.id);
+          return;
+        }
+
+        const discardPaused = e.target.closest(".discard-paused-timer-btn");
+        if (discardPaused) {
+          discardPausedTimer(discardPaused.dataset.id);
+          return;
+        }
+
         const checklistToggle = e.target.closest(".checklist-item-cb");
         if (checklistToggle) {
           updateChecklistCount();
           const operationId = activeOp()?.id || $("#operationChecklist").dataset.opId || "";
           const selectedIds = syncChecklistSelection(operationId);
+          if (timer.status !== "idle" && timer.operationId === operationId) {
+            timer.selectedItemIds = selectedIds;
+            saveTimer();
+          }
           const items = getOperationItems(operationId, true);
           const item = items.find(x => x.id === checklistToggle.dataset.itemId) || null;
           recordAction("operation_item_toggled", {
@@ -3329,9 +3786,12 @@
           if (timer.status !== "idle") {
             const op = operationById(timer.operationId);
             if (!operationMatchesDeal(op, nextDeal)) {
-              setMobileView("measure");
-              showNotice("Нельзя сменить цель кредита: текущий замер относится к другой выборке", "warning");
-              return;
+              if (timer.status === "running") {
+                setMobileView("measure");
+                showNotice("Сначала поставьте текущий замер на паузу или завершите его", "warning");
+                return;
+              }
+              stashPausedTimer("change_deal_filter", { nextDeal });
             }
           }
 
@@ -3351,11 +3811,14 @@
         const selOp = e.target.closest(".select-op-btn");
         if (selOp) {
           const id = selOp.dataset.id;
-          if (timer.status !== "idle" && timer.operationId !== id) {
+          if (timer.status === "running" && timer.operationId !== id) {
             setMobileView("measure");
             recordAction("operation_select_blocked", { operationId: id, activeTimerOperationId: timer.operationId });
-            showNotice("Сначала завершите текущий замер!", "warning");
+            showNotice("Сначала поставьте текущий замер на паузу или завершите его", "warning");
             return;
+          }
+          if (timer.status === "paused" && timer.operationId !== id) {
+            stashPausedTimer("select_another_operation", { nextOperationId: id });
           }
           const candidateAssignments = getAssignmentsForOperation(id, {
             assigneeKey: state.filters.assignmentScope === "my" ? state.session.assigneeKey : "",
@@ -3375,11 +3838,14 @@
         const selEmp = e.target.closest(".select-emp-btn");
         if (selEmp) {
           const id = selEmp.dataset.id;
-          if (timer.status !== "idle" && timer.employeeId !== id) {
+          if (timer.status === "running" && timer.employeeId !== id) {
              setMobileView("measure");
              recordAction("employee_select_blocked", { employeeId: id, activeTimerEmployeeId: timer.employeeId });
-             showNotice("Сначала завершите текущий замер!", "warning");
+             showNotice("Сначала поставьте текущий замер на паузу или завершите его", "warning");
              return;
+          }
+          if (timer.status === "paused" && timer.employeeId !== id) {
+            stashPausedTimer("select_another_employee", { nextEmployeeId: id });
           }
           const previousEmployeeId = state.selectedEmployeeId;
           state.selectedEmployeeId = id;
@@ -3501,6 +3967,22 @@
         renderOperationsTab();
       };
 
+      $("#clearOperationFiltersBtn").onclick = () => {
+        const previousFilters = { ...state.filters };
+        const defaults = defaultState().filters;
+        state.filters.search = defaults.search;
+        state.filters.stage = defaults.stage;
+        state.filters.deal = defaults.deal;
+        state.filters.status = defaults.status;
+        state.filters.source = defaults.source;
+        state.filters.assignmentScope = defaults.assignmentScope;
+        state.filters.assignmentStatus = defaults.assignmentStatus;
+        recordAction("filters_reset", { area: "operations", previousFilters, filters: { ...state.filters } });
+        renderAll();
+        setMobileView("operations");
+        showNotice("Фильтры и поиск очищены", "success");
+      };
+
       $("#sessionAssignee").onchange = (e) => applyAssigneeSelection(e.target.value);
 
       function updateAnalysisFilter(field, value) {
@@ -3521,6 +4003,16 @@
       $("#analysisQueryFilter").oninput = e => updateAnalysisFilter("query", e.target.value);
       $("#analysisCommentsOnly").onchange = e => updateAnalysisFilter("commentsOnly", e.target.checked);
       $("#analysisSelectedOnly").onchange = e => updateAnalysisFilter("selectedOnly", e.target.checked);
+
+      $("#clearAnalysisFiltersBtn").onclick = () => {
+        if (!state.analysis) state.analysis = defaultAnalysisState();
+        const previousFilters = { ...(state.analysis.filters || {}) };
+        state.analysis.filters = { ...defaultAnalysisState().filters };
+        recordAction("analysis_filters_reset", { previousFilters, filters: { ...state.analysis.filters } });
+        renderAnalysisTab();
+        setMobileView("analysis");
+        showNotice("Фильтры анализа очищены", "success");
+      };
 
       document.addEventListener("keydown", (e) => {
         if (!["Enter", " "].includes(e.key)) return;
@@ -3616,23 +4108,45 @@
         if (currentDealKey() === "all" && !assignment) {
           showNotice("Выбран общий режим «Все цели». Для продуктовой аналитики лучше выбрать ИЖС+ЖД, ГЖ или ДДУ.", "warning");
         }
-        timer = { operationId: op.id, employeeId: emp.id, startedAt: isoNow(), runningSince: isoNow(), elapsedBeforePauseSec: 0, status: "running" };
+        timer = {
+          ...defaultTimer(),
+          id: uniqueId("timer"),
+          operationId: op.id,
+          employeeId: emp.id,
+          assignmentId: assignment?.id || "",
+          creditGoalKey: currentDealKey(),
+          startedAt: isoNow(),
+          runningSince: isoNow(),
+          elapsedBeforePauseSec: 0,
+          status: "running",
+          commentDraft: state.measurementCommentDraft || "",
+          selectedItemIds: selectedItemIds(op.id)
+        };
         saveTimer();
         recordAction("timer_started", { operationId: op.id, employeeId: emp.id, assignmentId: assignment?.id || "", creditGoalKey: currentDealKey() });
         renderAll();
       };
       $("#timerPauseBtn").onclick = () => {
         timer.elapsedBeforePauseSec = getElapsedSec();
-        timer.runningSince = ""; timer.status = "paused";
+        if (timer.operationId) syncChecklistSelection(timer.operationId);
+        timer.runningSince = ""; timer.status = "paused"; timer.pausedAt = isoNow(); timer.commentDraft = state.measurementCommentDraft || timer.commentDraft || "";
+        timer.selectedItemIds = selectedItemIds(timer.operationId);
         saveTimer();
         recordAction("timer_paused", { operationId: timer.operationId, employeeId: timer.employeeId, elapsedSec: timer.elapsedBeforePauseSec });
         renderAll();
       };
       $("#timerResumeBtn").onclick = () => {
-        timer.runningSince = isoNow(); timer.status = "running";
+        timer.runningSince = isoNow(); timer.status = "running"; timer.pausedAt = ""; timer.commentDraft = state.measurementCommentDraft || timer.commentDraft || "";
         saveTimer();
         recordAction("timer_resumed", { operationId: timer.operationId, employeeId: timer.employeeId, elapsedBeforePauseSec: timer.elapsedBeforePauseSec });
         renderAll();
+      };
+      $("#timerStashBtn").onclick = () => {
+        if (stashPausedTimer("manual_stash")) {
+          renderAll();
+          setMobileView("operations");
+          showNotice("Замер отложен. Можно выбрать другую задачу.", "success");
+        }
       };
       $("#timerResetBtn").onclick = () => {
         if(confirm("Сбросить текущий замер без сохранения?")) { 
@@ -3654,8 +4168,8 @@
         
         const op = operationById(timer.operationId);
         syncChecklistSelection(op.id);
-        const assignment = activeAssignment();
-        const deal = assignment?.creditGoalKey || currentDealKey();
+        const assignment = timerAssignment() || activeAssignment();
+        const deal = timer.creditGoalKey || assignment?.creditGoalKey || currentDealKey();
         const goal = getCreditGoal(deal);
         const goalLabel = assignment?.creditGoalLabel || (deal === "all" ? "Все цели / общий режим" : goal.label);
         const sec = timer.elapsedBeforePauseSec;
@@ -3704,13 +4218,13 @@
       $("#confirmSaveBtn").onclick = () => {
         const op = operationById(timer.operationId);
         const emp = state.employees.find(e => e.id === timer.employeeId);
-        const assignment = activeAssignment();
+        const assignment = timerAssignment() || activeAssignment();
         if (state.filters.assignmentScope === "my" && !assignment) {
           recordAction("measurement_save_blocked", { reason: "assignment_missing", operationId: op?.id || "", employeeId: emp?.id || "" });
           showNotice("Нельзя сохранить замер в режиме «Мои задачи» без выбранного назначения", "warning");
           return;
         }
-        const currentDeal = assignment?.creditGoalKey || currentDealKey();
+        const currentDeal = timer.creditGoalKey || assignment?.creditGoalKey || currentDealKey();
         const currentGoal = getCreditGoal(currentDeal);
         const sec = timer.elapsedBeforePauseSec;
         const min = Number((sec/60).toFixed(2));
@@ -3942,6 +4456,7 @@
 
       function exportAnalysisJson() {
         const aggregate = buildAnalysisAggregate();
+        const coverageDashboard = buildAnalysisCoverageDashboard(state.analysis?.measurements || []);
         recordAction("analysis_export_json", {
           measurementsCount: aggregate.measurements.length,
           groupsCount: aggregate.groups.length,
@@ -3952,6 +4467,7 @@
           exportedAt: isoNow(),
           importedFiles: state.analysis.importedFiles || [],
           sessions: state.analysis.sessions || [],
+          coverageDashboard,
           aggregate
         }, null, 2));
       }
@@ -4367,6 +4883,10 @@
 
       $("#liveMeasurementComment").oninput = (e) => {
         state.measurementCommentDraft = e.target.value;
+        if (timer.status !== "idle") {
+          timer.commentDraft = e.target.value;
+          saveTimer();
+        }
         recordAction("measurement_comment_draft_updated", {
           source: "measure_screen",
           value: e.target.value,
@@ -4377,6 +4897,10 @@
 
       $("#measurementComment").oninput = (e) => {
         state.measurementCommentDraft = e.target.value;
+        if (timer.status !== "idle") {
+          timer.commentDraft = e.target.value;
+          saveTimer();
+        }
         const liveComment = $("#liveMeasurementComment");
         if (liveComment && document.activeElement !== liveComment) {
           liveComment.value = e.target.value;
