@@ -1292,6 +1292,10 @@
           assignmentId: measurement.assignmentId || "",
           assignmentSeq: measurement.assignmentSeq ?? null,
           assignmentType: measurement.assignmentType || "legacy",
+          masterTaskKey: measurement.masterTaskKey || measurement.assignmentMasterTaskKey || "",
+          coverageKey: measurement.coverageKey || measurement.assignmentCoverageKey || "",
+          assignmentMasterTaskKey: measurement.assignmentMasterTaskKey || measurement.masterTaskKey || "",
+          assignmentCoverageKey: measurement.assignmentCoverageKey || measurement.coverageKey || "",
 
           assigneeKey: measurement.assigneeKey || "",
           assigneeName: normalizeAssigneeName(measurement.assigneeName || ""),
@@ -1305,6 +1309,7 @@
           assignmentTimingMinutes: measurement.assignmentTimingMinutes ?? null,
           assignmentRowsIn233: measurement.assignmentRowsIn233 ?? null,
           assignmentPriority: measurement.assignmentPriority || "",
+          priorityCode: measurement.priorityCode || "",
           assignmentSourceSheet: measurement.assignmentSourceSheet || "",
           assignmentSourceRow: measurement.assignmentSourceRow ?? null,
 
@@ -1744,6 +1749,11 @@
           }));
         }
         if (!next.assignmentId) next.assignmentId = "";
+        next.masterTaskKey = next.masterTaskKey || next.assignmentMasterTaskKey || "";
+        next.coverageKey = next.coverageKey || next.assignmentCoverageKey || "";
+        next.assignmentMasterTaskKey = next.assignmentMasterTaskKey || next.masterTaskKey || "";
+        next.assignmentCoverageKey = next.assignmentCoverageKey || next.coverageKey || "";
+        next.priorityCode = next.priorityCode || "";
         next.assigneeName = normalizeAssigneeName(next.assigneeName);
         return next;
       }
@@ -1997,6 +2007,10 @@
 
       function getAllAssignments() {
         return [...MEASUREMENT_ASSIGNMENTS, ...(state.customAssignments || [])];
+      }
+
+      function isPlannedAssignment(assignment) {
+        return assignment?.assignmentType === "planned" || assignment?.assignmentType === "planned_next_day";
       }
 
       function assignmentById(id) {
@@ -2905,7 +2919,7 @@
           if (effectiveAssignmentScope === "my" && (!assigneeKey || !opAssignments.length)) return false;
           if (effectiveAssignmentScope === "all" && !opAssignments.length) return false;
           if (effectiveAssignmentScope === "unassigned") {
-            const planned = getAssignmentsForOperation(o.id).filter(a => a.assignmentType === "planned");
+            const planned = getAssignmentsForOperation(o.id).filter(isPlannedAssignment);
             if (planned.length && o.sourceType !== "custom_group") return false;
           }
           const searchableItems = getOperationItems(o.id)
@@ -2953,7 +2967,7 @@
           const isCustom = op.sourceType === "custom_group";
           const assignments = getAssignmentsForOperation(op.id, assignmentOptions)
             .filter(a => assignmentMatchesDeal(a, deal))
-            .filter(a => assignmentScope === "unassigned" ? a.assignmentType !== "planned" : true)
+            .filter(a => assignmentScope === "unassigned" ? !isPlannedAssignment(a) : true)
             .filter(a => assignmentMatchesStatus(a, assignmentStatus))
             .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
           const matchedItems = query ? getOperationItems(op.id)
@@ -3478,7 +3492,7 @@
       }
 
       function analysisPlanAssignments() {
-        return getAllAssignments().filter(a => a.assignmentType === "planned");
+        return getAllAssignments().filter(isPlannedAssignment);
       }
 
       function analysisScopeKey(operationId, goalKey) {
@@ -3872,7 +3886,7 @@
       function renderProgressTab() {
         document.querySelectorAll("#chipsProgressMode .chip").forEach(c => c.classList.toggle("active", c.dataset.val === (state.filters.progressMode || "my")));
         const progressMode = state.filters.progressMode || "my";
-        const assignments = progressMode === "my" ? getAssignmentsForCurrentAssignee() : getAllAssignments().filter(a => a.assignmentType === "planned");
+        const assignments = progressMode === "my" ? getAssignmentsForCurrentAssignee() : getAllAssignments().filter(isPlannedAssignment);
         const completed = assignments.filter(a => assignmentIsCompleted(a.id));
         const pendingCount = Math.max(0, assignments.length - completed.length);
         const progressMeasurements = progressMeasurementsForScope(progressMode, assignments);
@@ -4556,6 +4570,10 @@
           assignmentId: assignment?.id || "",
           assignmentSeq: assignment?.seq ?? null,
           assignmentType: assignment?.assignmentType || "legacy",
+          masterTaskKey: assignment?.masterTaskKey || assignment?.id || "",
+          coverageKey: assignment?.coverageKey || "",
+          assignmentMasterTaskKey: assignment?.masterTaskKey || assignment?.id || "",
+          assignmentCoverageKey: assignment?.coverageKey || "",
           assigneeKey: assignment?.assigneeKey || state.session.assigneeKey || "",
           assigneeName: assignment?.assigneeName || state.session.assigneeName || "",
 
@@ -4568,6 +4586,7 @@
           assignmentTimingMinutes: assignment?.timingMinutes ?? null,
           assignmentRowsIn233: assignment?.rowsIn233 ?? null,
           assignmentPriority: assignment?.priority || "",
+          priorityCode: assignment?.priorityCode || "",
           assignmentSourceSheet: assignment?.sourceSheet || "",
           assignmentSourceRow: assignment?.sourceRow ?? null,
 
