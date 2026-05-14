@@ -929,10 +929,43 @@
         <div class="panel">
           <div class="panel-header"><h2>Экспорт и Импорт</h2></div>
           <div class="panel-body form-grid">
+            <button type="button" id="exportCompactSessionBtn" class="primary">Экспорт компактной сессии</button>
             <button type="button" id="exportCsvBtn">Экспорт CSV</button>
-            <button type="button" id="exportSessionBtn">Экспорт сессии (JSON)</button>
+            <button type="button" id="compactSessionBtn" class="ghost">Сжать сессию</button>
+            <button type="button" id="exportSessionBtn" class="ghost">Экспорт полной сессии (резерв)</button>
             <button type="button" id="importSessionBtn" class="ghost">Импорт сессии</button>
             <input type="file" id="importSessionInput" accept="application/json,.json" class="hidden">
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h2>Состояние памяти</h2></div>
+          <div class="panel-body">
+            <div class="counter-grid">
+              <div class="counter">
+                <strong id="storageStateSize">0.00</strong>
+                <span>МБ сессии</span>
+              </div>
+              <div class="counter">
+                <strong id="storageStatus">OK</strong>
+                <span>Статус</span>
+              </div>
+            </div>
+            <p class="meta-line-text mt-4" id="storageLastSavedAt"></p>
+          </div>
+        </div>
+
+        <div class="panel danger-panel hidden" id="emergencyExportPanel">
+          <div class="panel-header danger-panel-header">
+            <h2>Аварийное сохранение</h2>
+          </div>
+          <div class="panel-body form-grid">
+            <p class="meta-line-text">
+              Если появилась ошибка памяти, не закрывайте вкладку. Скачайте аварийную копию.
+            </p>
+            <button type="button" class="danger danger-strong" id="emergencyExportBtn">
+              Скачать аварийную копию
+            </button>
           </div>
         </div>
 
@@ -1057,6 +1090,7 @@
       let state = loadState();
       let timer = loadTimer();
       let lastNotice = null;
+      let lastStorageHealthNoticeAt = 0;
 
       if (timer.status === "running") {
         timer.elapsedBeforePauseSec = getElapsedSec(timer);
@@ -1080,8 +1114,79 @@
         } catch (e) { return defaultTimer(); }
       }
 
-      function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-      function saveTimer() { localStorage.setItem(TIMER_KEY, JSON.stringify(timer)); }
+      function isQuotaExceededError(error) {
+        return Boolean(
+          error &&
+          (
+            error.name === "QuotaExceededError" ||
+            error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+            error.code === 22 ||
+            error.code === 1014
+          )
+        );
+      }
+
+      function jsonSizeMb(value) {
+        try {
+          return new Blob([JSON.stringify(value)]).size / 1024 / 1024;
+        } catch (e) {
+          return 0;
+        }
+      }
+
+      function saveStateSafe(options = {}) {
+        const { showError = true, checkHealth = true } = options;
+
+        try {
+          const serialized = JSON.stringify(state);
+          localStorage.setItem(STORAGE_KEY, serialized);
+
+          try {
+            localStorage.setItem(STORAGE_KEY + "_lastSavedAt", isoNow());
+            localStorage.setItem(
+              STORAGE_KEY + "_lastSizeMb",
+              String((new Blob([serialized]).size / 1024 / 1024).toFixed(2))
+            );
+          } catch (metaError) {
+            console.warn("Не удалось сохранить метаданные localStorage", metaError);
+          }
+
+          if (checkHealth) checkStorageHealthAfterSave();
+          return true;
+        } catch (error) {
+          console.error("Не удалось сохранить state", error);
+
+          if (showError) {
+            const message = isQuotaExceededError(error)
+              ? "Память браузера заполнена. Данные пока есть на экране, но могут пропасть после закрытия вкладки. Скачайте аварийную копию."
+              : "Не удалось сохранить сессию. Скачайте аварийную копию перед закрытием вкладки.";
+
+            showNotice(message, "danger");
+          }
+
+          showEmergencyExportPanel();
+          return false;
+        }
+      }
+
+      function saveState() {
+        return saveStateSafe();
+      }
+
+      function saveTimer(options = {}) {
+        const { showError = true } = options;
+        try {
+          localStorage.setItem(TIMER_KEY, JSON.stringify(timer));
+          return true;
+        } catch (error) {
+          console.error("Не удалось сохранить timer", error);
+          if (showError) {
+            showNotice("Не удалось сохранить состояние таймера. Скачайте аварийную копию перед закрытием вкладки.", "danger");
+          }
+          showEmergencyExportPanel();
+          return false;
+        }
+      }
 
       function uniqueId(prefix) {
         return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1119,6 +1224,224 @@
       function exportBaseFilename() {
         const auditor = sanitizeFilenamePart(state.session.auditor || state.session.assigneeName) || "без_проверяющего";
         return `${auditor}_${localTimestampForFilename()}`;
+      }
+
+      function showEmergencyExportPanel() {
+        const panel = $("#emergencyExportPanel");
+        if (panel) panel.classList.remove("hidden");
+      }
+
+      function makeEmergencyPayload(extra = {}) {
+        return {
+          type: "di-time-measurement-emergency-backup",
+          version: "1.0",
+          exportedAt: isoNow(),
+          storageKey: STORAGE_KEY,
+          timerKey: TIMER_KEY,
+          state,
+          timer,
+          extra
+        };
+      }
+
+      function downloadEmergencyBackup(extra = {}) {
+        const assignee = sanitizeFilenamePart(
+          state.session.assigneeName || state.session.auditor || "unknown"
+        ) || "unknown";
+
+        downloadFile(
+          `DI_EMERGENCY_${assignee}_${localTimestampForFilename()}.json`,
+          JSON.stringify(makeEmergencyPayload(extra), null, 2)
+        );
+      }
+
+      function compactMeasurement(measurement) {
+        const selectedIds = measurementSelectedItemIds(measurement);
+        const selectedNumbers = Array.isArray(measurement.selectedItemNumbers)
+          ? measurement.selectedItemNumbers
+          : [];
+
+        return {
+          id: measurement.id,
+
+          operationId: measurement.operationId || "",
+          operationTitle: measurement.operationTitle || "",
+          stage: measurement.stage || "",
+          processBlock: measurement.processBlock || "",
+          dealType: measurement.dealType || "",
+          plannedMinutes: measurement.plannedMinutes ?? null,
+          operationSourceType: measurement.operationSourceType || "",
+          isCustomGroup: Boolean(measurement.isCustomGroup),
+          customGroupId: measurement.customGroupId || "",
+          rowsCount: measurement.rowsCount ?? null,
+
+          assignmentId: measurement.assignmentId || "",
+          assignmentSeq: measurement.assignmentSeq ?? null,
+          assignmentType: measurement.assignmentType || "legacy",
+
+          assigneeKey: measurement.assigneeKey || "",
+          assigneeName: normalizeAssigneeName(measurement.assigneeName || ""),
+
+          assignmentDate: measurement.assignmentDate || "",
+          assignmentStart: measurement.assignmentStart || "",
+          assignmentEnd: measurement.assignmentEnd || "",
+          assignmentCreditGoalKey: measurement.assignmentCreditGoalKey || "",
+          assignmentCreditGoalLabel: measurement.assignmentCreditGoalLabel || "",
+          assignmentMeasurementNo: measurement.assignmentMeasurementNo ?? null,
+          assignmentTimingMinutes: measurement.assignmentTimingMinutes ?? null,
+          assignmentRowsIn233: measurement.assignmentRowsIn233 ?? null,
+          assignmentPriority: measurement.assignmentPriority || "",
+          assignmentSourceSheet: measurement.assignmentSourceSheet || "",
+          assignmentSourceRow: measurement.assignmentSourceRow ?? null,
+
+          creditGoalKey: measurement.creditGoalKey || "",
+          creditGoalLabel: measurement.creditGoalLabel || "",
+
+          employeeId: measurement.employeeId || "",
+          employeeName: measurement.employeeName || "",
+          employeeRole: measurement.employeeRole || "",
+          employeeProfile: measurement.employeeProfile || "",
+
+          startedAt: measurement.startedAt || "",
+          endedAt: measurement.endedAt || "",
+          durationSec: Number(measurement.durationSec || 0),
+          durationMin: Number(measurement.durationMin || 0),
+          deviationMin: measurement.deviationMin ?? null,
+          deviationPercent: measurement.deviationPercent ?? null,
+
+          selectedItemIds: selectedIds,
+          selectedItemNumbers: selectedNumbers,
+
+          operationItemsCount: Number(measurement.operationItemsCount || 0),
+          selectedItemsCount: Number(measurement.selectedItemsCount || selectedIds.length || 0),
+
+          comment: measurement.comment || "",
+          createdAt: measurement.createdAt || isoNow(),
+          updatedAt: measurement.updatedAt || measurement.createdAt || isoNow()
+        };
+      }
+
+      function compactActionLog(actions, fallbackSession = state.session) {
+        const meaningfulTypes = new Set([
+          "measurement_saved",
+          "timer_started",
+          "timer_paused",
+          "timer_resumed",
+          "timer_finished",
+          "timer_stashed",
+          "paused_timer_restored",
+          "paused_timer_discarded",
+          "custom_group_created",
+          "custom_group_updated",
+          "custom_item_created",
+          "custom_item_updated",
+          "session_imported",
+          "export_session"
+        ]);
+
+        return (actions || [])
+          .filter(action => meaningfulTypes.has(action.type))
+          .slice(-300)
+          .map(action => ({
+            id: action.id || uniqueId("action"),
+            type: action.type,
+            occurredAt: action.occurredAt || isoNow(),
+            session: action.session
+              ? {
+                  auditor: action.session.auditor || "",
+                  assigneeKey: action.session.assigneeKey || "",
+                  assigneeName: normalizeAssigneeName(action.session.assigneeName || ""),
+                  date: action.session.date || "",
+                  site: action.session.site || ""
+                }
+              : { ...(fallbackSession || {}) },
+            context: {
+              selectedOperationId: action.context?.selectedOperationId || "",
+              selectedAssignmentId: action.context?.selectedAssignmentId || "",
+              selectedEmployeeId: action.context?.selectedEmployeeId || "",
+              timerStatus: action.context?.timerStatus || ""
+            },
+            details: action.details || {}
+          }));
+      }
+
+      function compactStateForStorage(sourceState) {
+        const source = hydrateState(sourceState || defaultState());
+
+        return {
+          ...source,
+          measurements: (source.measurements || []).map(compactMeasurement),
+          analysis: defaultAnalysisState(),
+          actionLog: compactActionLog(source.actionLog || [], source.session),
+          employees: source.employees || [],
+          customGroups: source.customGroups || [],
+          customItems: source.customItems || [],
+          customAssignments: source.customAssignments || [],
+          operationItemSelections: source.operationItemSelections || {},
+          pausedTimers: source.pausedTimers || []
+        };
+      }
+
+      function getStorageStatus() {
+        const mb = jsonSizeMb(state);
+        let status = "OK";
+        let label = "Нормально";
+
+        if (mb >= 4.5) {
+          status = "CRITICAL";
+          label = "Критично";
+        } else if (mb >= 3) {
+          status = "WARNING";
+          label = "Внимание";
+        }
+
+        return {
+          mb,
+          status,
+          label,
+          lastSavedAt: localStorage.getItem(STORAGE_KEY + "_lastSavedAt") || ""
+        };
+      }
+
+      function renderStorageStatus() {
+        const info = getStorageStatus();
+
+        const sizeEl = $("#storageStateSize");
+        const statusEl = $("#storageStatus");
+        const lastSavedEl = $("#storageLastSavedAt");
+
+        if (sizeEl) sizeEl.textContent = info.mb.toFixed(2);
+        if (statusEl) {
+          statusEl.textContent = info.label;
+          statusEl.style.color = info.status === "CRITICAL"
+            ? "var(--danger)"
+            : info.status === "WARNING"
+              ? "var(--warning)"
+              : "var(--primary-dark)";
+        }
+        if (lastSavedEl) {
+          lastSavedEl.textContent = info.lastSavedAt
+            ? `Последнее успешное сохранение: ${measurementDateTimeLabel(info.lastSavedAt)}`
+            : "Успешных сохранений еще не было";
+        }
+
+        if (info.status === "CRITICAL") {
+          showEmergencyExportPanel();
+        }
+      }
+
+      function checkStorageHealthAfterSave() {
+        renderStorageStatus();
+        const info = getStorageStatus();
+
+        if (info.status === "CRITICAL") {
+          const now = Date.now();
+          if (now - lastStorageHealthNoticeAt > 60000) {
+            showNotice("Сессия стала слишком большой. Скачайте компактную копию и выполните сжатие.", "warning");
+            lastStorageHealthNoticeAt = now;
+          }
+          showEmergencyExportPanel();
+        }
       }
 
       function selectedItemIds(operationId) {
@@ -1163,7 +1486,10 @@
           },
           details
         });
-        saveState();
+        if (state.actionLog.length > 600) {
+          state.actionLog = compactActionLog(state.actionLog, state.session);
+        }
+        return saveState();
       }
 
       function getElapsedSec(source = timer) {
@@ -1184,6 +1510,9 @@
       function stashPausedTimer(reason = "manual", details = {}) {
         if (timer.status !== "paused") return false;
         if (timer.operationId) syncChecklistSelection(timer.operationId);
+        const previousPausedTimers = [...pausedTimers()];
+        const previousActionLog = Array.isArray(state.actionLog) ? [...state.actionLog] : [];
+        const previousDraft = state.measurementCommentDraft;
         const stashed = {
           ...defaultTimer(),
           ...timer,
@@ -1199,10 +1528,20 @@
         };
         state.pausedTimers = pausedTimers().filter(t => t.id !== stashed.id);
         state.pausedTimers.push(stashed);
-        timer = defaultTimer();
         state.measurementCommentDraft = "";
+
+        const saved = recordAction("timer_stashed", { reason, timer: stashed, ...details });
+        if (!saved) {
+          state.pausedTimers = previousPausedTimers;
+          state.actionLog = previousActionLog;
+          state.measurementCommentDraft = previousDraft;
+          showNotice("Отложенный замер не сохранен из-за переполнения памяти. Таймер оставлен на паузе.", "danger");
+          downloadEmergencyBackup({ reason: "quota_exceeded_on_timer_stash", attemptedTimer: stashed });
+          return false;
+        }
+
+        timer = defaultTimer();
         saveTimer();
-        recordAction("timer_stashed", { reason, timer: stashed, ...details });
         return true;
       }
 
@@ -1213,7 +1552,7 @@
           return;
         }
         if (timer.status === "paused") {
-          stashPausedTimer("restore_other_timer", { nextTimerId: timerId });
+          if (!stashPausedTimer("restore_other_timer", { nextTimerId: timerId })) return;
         }
         const paused = pausedTimers().find(t => t.id === timerId);
         if (!paused) {
@@ -1375,7 +1714,12 @@
           creditGoalKey: "legacy_unknown",
           creditGoalLabel: "Не указано / старый замер"
         };
-        if (!Array.isArray(next.checkedItemsDetailed)) {
+        if (
+          !Array.isArray(next.checkedItemsDetailed) &&
+          Array.isArray(next.checkedItems) &&
+          next.checkedItems.length &&
+          !Array.isArray(next.selectedItemIds)
+        ) {
           next.checkedItemsDetailed = (next.checkedItems || []).map((text, index) => ({
             id: `LEGACY-ITEM-${index + 1}`,
             text,
@@ -1517,6 +1861,9 @@
           (measurement.checkedItemsDetailed || []).forEach(item => {
             if (itemIdMap[item.id]) item.id = itemIdMap[item.id];
           });
+          if (Array.isArray(measurement.selectedItemIds)) {
+            measurement.selectedItemIds = measurement.selectedItemIds.map(itemId => itemIdMap[itemId] || itemId);
+          }
         });
       }
 
@@ -1712,7 +2059,7 @@
           return;
         }
         if (timer.status === "paused" && !timerMatchesAssignment) {
-          stashPausedTimer("select_another_assignment", { nextAssignmentId: assignment.id, nextOperationId: assignment.operationId });
+          if (!stashPausedTimer("select_another_assignment", { nextAssignmentId: assignment.id, nextOperationId: assignment.operationId })) return;
         }
         const previousAssignmentId = state.selectedAssignmentId;
         const previousOperationId = state.selectedOperationId;
@@ -2110,7 +2457,7 @@
       }
 
       function customItemUsed(id) {
-        return state.measurements.some(m => (m.checkedItemsDetailed || []).some(item => item.id === id));
+        return state.measurements.some(m => measurementSelectedItemIds(m).includes(id));
       }
 
       function archiveCustomGroup(id) {
@@ -2186,6 +2533,7 @@
         renderAnalysisTab();
         renderMoreTab();
         renderHeader();
+        renderStorageStatus();
         updateTimerDisplay();
 
         if (lastNotice) {
@@ -2782,7 +3130,28 @@
         return "Цель кредита не указана";
       }
 
-      function selectedDetailsFromMeasurement(measurement) {
+      function operationItemsSnapshotForMeasurement(measurement) {
+        const operationId = measurement?.operationId || "";
+        const selectedIds = new Set((measurementSelectedItemIds(measurement) || []).map(String));
+        const items = getOperationItems(operationId, true);
+
+        return items.map((item, index) => {
+          const id = String(item.id || item.text || `item_${index + 1}`);
+          return {
+            id,
+            itemIndex: index,
+            itemNumber: index + 1,
+            text: item.text || "",
+            dealTag: item.dealTag || "",
+            sourceType: item.sourceType || "base_item",
+            parentOperationId: item.parentOperationId || operationId,
+            customComment: item.comment || item.customComment || "",
+            selected: selectedIds.has(id)
+          };
+        });
+      }
+
+      function rawSelectedDetailsFromMeasurement(measurement) {
         const byId = new Map();
         const add = (item, selected = true) => {
           if (!item) return;
@@ -2810,11 +3179,47 @@
         return Array.from(byId.values());
       }
 
+      function enrichMeasurementForExport(measurement) {
+        const op = operationById(measurement.operationId);
+        const snapshot = operationItemsSnapshotForMeasurement(measurement);
+        const snapshotSelected = snapshot.filter(item => item.selected);
+        const rawSelected = rawSelectedDetailsFromMeasurement(measurement);
+        const selectedItemsDetailed = snapshotSelected.length ? snapshotSelected : rawSelected;
+        const operationItemsDetailed = snapshot.length ? snapshot : selectedItemsDetailed;
+
+        return {
+          ...measurement,
+
+          operationTitle: measurement.operationTitle || op?.title || "",
+          stage: measurement.stage || op?.stage || "",
+          processBlock: measurement.processBlock || op?.processBlock || "",
+          dealType: measurement.dealType || op?.dealType || "",
+          plannedMinutes: measurement.plannedMinutes ?? op?.plannedMinutes ?? "",
+          operationSourceType: measurement.operationSourceType || op?.sourceType || "base",
+          isCustomGroup: Boolean(measurement.isCustomGroup || op?.sourceType === "custom_group"),
+
+          operationItemsDetailed,
+          selectedItemsDetailed,
+          checkedItems: selectedItemsDetailed.map(item => item.text),
+          checkedItemsDetailed: selectedItemsDetailed,
+
+          operationItemsCount: operationItemsDetailed.length,
+          selectedItemsCount: selectedItemsDetailed.length
+        };
+      }
+
+      function selectedDetailsFromMeasurement(measurement) {
+        const raw = rawSelectedDetailsFromMeasurement(measurement);
+        if (raw.length) return raw;
+        return enrichMeasurementForExport(measurement).selectedItemsDetailed || [];
+      }
+
       function allDetailsFromMeasurement(measurement) {
         if (Array.isArray(measurement.operationItemsDetailed) && measurement.operationItemsDetailed.length) {
           return measurement.operationItemsDetailed;
         }
-        return selectedDetailsFromMeasurement(measurement);
+        const snapshot = operationItemsSnapshotForMeasurement(measurement);
+        return snapshot.length ? snapshot : selectedDetailsFromMeasurement(measurement);
       }
 
       function selectedItemsCountForMeasurement(measurement) {
@@ -2823,7 +3228,7 @@
       }
 
       function analysisNormalizeMeasurement(measurement, source) {
-        const migrated = migrateMeasurement(measurement) || {};
+        const migrated = enrichMeasurementForExport(migrateMeasurement(measurement) || {});
         const normalized = {
           ...migrated,
           analysisKey: analysisMeasurementKey(migrated, source),
@@ -3725,6 +4130,143 @@
         setTimeout(() => w.style.display = "none", 4000);
       }
 
+      function buildMeasurementFromCurrentContext(op, emp, assignment, sec, min, dev, currentDeal, currentGoal) {
+        const operationItemsDetailed = operationItemsSnapshot(op.id);
+        const selectedItemsDetailed = operationItemsDetailed.filter(item => item.selected);
+        const now = isoNow();
+
+        const measurement = {
+          id: uniqueId("measurement"),
+
+          operationId: op.id,
+          operationTitle: op.title,
+          stage: op.stage,
+          processBlock: op.processBlock,
+          dealType: op.dealType,
+          plannedMinutes: op.plannedMinutes,
+          operationSourceType: op.sourceType || "base",
+          isCustomGroup: op.sourceType === "custom_group",
+          customGroupId: op.sourceType === "custom_group" ? op.id : "",
+          rowsCount: getOperationRowsCount(op.id),
+
+          assignmentId: assignment?.id || "",
+          assignmentSeq: assignment?.seq ?? null,
+          assignmentType: assignment?.assignmentType || "legacy",
+          assigneeKey: assignment?.assigneeKey || state.session.assigneeKey || "",
+          assigneeName: assignment?.assigneeName || state.session.assigneeName || "",
+
+          assignmentDate: assignment?.date || "",
+          assignmentStart: assignment?.start || "",
+          assignmentEnd: assignment?.end || "",
+          assignmentCreditGoalKey: assignment?.creditGoalKey || "",
+          assignmentCreditGoalLabel: assignment?.creditGoalLabel || "",
+          assignmentMeasurementNo: assignment?.measurementNo ?? null,
+          assignmentTimingMinutes: assignment?.timingMinutes ?? null,
+          assignmentRowsIn233: assignment?.rowsIn233 ?? null,
+          assignmentPriority: assignment?.priority || "",
+          assignmentSourceSheet: assignment?.sourceSheet || "",
+          assignmentSourceRow: assignment?.sourceRow ?? null,
+
+          creditGoalKey: currentDeal,
+          creditGoalLabel: assignment?.creditGoalLabel || currentGoal.label,
+
+          employeeId: emp.id,
+          employeeName: emp.name,
+          employeeRole: emp.role,
+          employeeProfile: emp.profile,
+
+          startedAt: timer.startedAt,
+          endedAt: now,
+          durationSec: sec,
+          durationMin: min,
+          deviationMin: dev,
+
+          operationItemsCount: operationItemsDetailed.length,
+          selectedItemsCount: selectedItemsDetailed.length,
+          selectedItemIds: selectedItemsDetailed.map(item => item.id),
+          selectedItemNumbers: selectedItemsDetailed.map(item => item.itemNumber),
+
+          comment: $("#measurementComment").value.trim(),
+          createdAt: now,
+          updatedAt: now
+        };
+
+        return compactMeasurement(measurement);
+      }
+
+      function saveMeasurementAtomic(measurement, actionDetails = {}) {
+        const previousState = state;
+        const previousTimer = { ...timer };
+        const nextAction = {
+          id: uniqueId("action"),
+          type: "measurement_saved",
+          occurredAt: isoNow(),
+          session: { ...state.session },
+          context: {
+            view: state.ui.mobileView,
+            selectedOperationId: measurement.operationId,
+            selectedAssignmentId: measurement.assignmentId || "",
+            selectedEmployeeId: measurement.employeeId,
+            timerStatus: timer.status
+          },
+          details: {
+            measurementId: measurement.id,
+            operationId: measurement.operationId,
+            employeeId: measurement.employeeId,
+            assignmentId: measurement.assignmentId || "",
+            durationSec: measurement.durationSec,
+            selectedItemsCount: measurement.selectedItemsCount,
+            selectedItemIds: measurement.selectedItemIds,
+            ...actionDetails
+          }
+        };
+
+        const nextState = {
+          ...state,
+          measurementCommentDraft: "",
+          measurements: [
+            ...(state.measurements || []),
+            measurement
+          ],
+          actionLog: [
+            ...(state.actionLog || []),
+            nextAction
+          ]
+        };
+
+        state = compactStateForStorage(nextState);
+
+        const saved = saveStateSafe();
+
+        if (!saved) {
+          state = previousState;
+          timer = previousTimer;
+
+          showNotice(
+            "Замер не сохранен из-за переполнения памяти браузера. Таймер не сброшен. Скачайте аварийную копию.",
+            "danger"
+          );
+          const confirmData = $("#confirmData");
+          if (confirmData) {
+            const previousError = confirmData.querySelector("[data-save-error]");
+            if (previousError) previousError.remove();
+            confirmData.insertAdjacentHTML(
+              "afterbegin",
+              `<div class="alert danger" data-save-error style="display:block;">Замер не сохранен. Таймер не сброшен. Скачайте аварийную копию перед закрытием вкладки.</div>`
+            );
+          }
+
+          downloadEmergencyBackup({
+            reason: "quota_exceeded_on_measurement_save",
+            attemptedMeasurement: measurement
+          });
+
+          return false;
+        }
+
+        return true;
+      }
+
       /* -------------------------------------
          EVENTS & ACTIONS
       ----------------------------------------*/
@@ -3791,7 +4333,7 @@
                 showNotice("Сначала поставьте текущий замер на паузу или завершите его", "warning");
                 return;
               }
-              stashPausedTimer("change_deal_filter", { nextDeal });
+              if (!stashPausedTimer("change_deal_filter", { nextDeal })) return;
             }
           }
 
@@ -3818,7 +4360,7 @@
             return;
           }
           if (timer.status === "paused" && timer.operationId !== id) {
-            stashPausedTimer("select_another_operation", { nextOperationId: id });
+            if (!stashPausedTimer("select_another_operation", { nextOperationId: id })) return;
           }
           const candidateAssignments = getAssignmentsForOperation(id, {
             assigneeKey: state.filters.assignmentScope === "my" ? state.session.assigneeKey : "",
@@ -3845,7 +4387,7 @@
              return;
           }
           if (timer.status === "paused" && timer.employeeId !== id) {
-            stashPausedTimer("select_another_employee", { nextEmployeeId: id });
+            if (!stashPausedTimer("select_another_employee", { nextEmployeeId: id })) return;
           }
           const previousEmployeeId = state.selectedEmployeeId;
           state.selectedEmployeeId = id;
@@ -4219,6 +4761,11 @@
         const op = operationById(timer.operationId);
         const emp = state.employees.find(e => e.id === timer.employeeId);
         const assignment = timerAssignment() || activeAssignment();
+        if (!op || !emp) {
+          recordAction("measurement_save_blocked", { reason: !op ? "operation_missing" : "employee_missing", operationId: timer.operationId || "", employeeId: timer.employeeId || "" });
+          showNotice("Для сохранения замера нужна операция и менеджер", "warning");
+          return;
+        }
         if (state.filters.assignmentScope === "my" && !assignment) {
           recordAction("measurement_save_blocked", { reason: "assignment_missing", operationId: op?.id || "", employeeId: emp?.id || "" });
           showNotice("Нельзя сохранить замер в режиме «Мои задачи» без выбранного назначения", "warning");
@@ -4230,53 +4777,16 @@
         const min = Number((sec/60).toFixed(2));
         const dev = op.plannedMinutes == null ? null : Number((min - op.plannedMinutes).toFixed(2));
         syncChecklistSelection(op.id);
-        const checkedDetailed = getCheckedItemsDetailed(op.id);
-        const checked = checkedDetailed.map(item => item.text);
-        const operationItemsDetailed = operationItemsSnapshot(op.id);
-        const selectedItemsDetailed = operationItemsDetailed.filter(item => item.selected);
+        const measurement = buildMeasurementFromCurrentContext(op, emp, assignment, sec, min, dev, currentDeal, currentGoal);
+        const saved = saveMeasurementAtomic(measurement);
 
-        const measurement = {
-          id: uniqueId("measurement"),
-          operationId: op.id, operationTitle: op.title, stage: op.stage, processBlock: op.processBlock, dealType: op.dealType,
-          assignmentId: assignment?.id || "", assignmentSeq: assignment?.seq ?? null, assignmentType: assignment?.assignmentType || "legacy",
-          assigneeKey: assignment?.assigneeKey || state.session.assigneeKey || "", assigneeName: assignment?.assigneeName || state.session.assigneeName || "",
-          assignmentDate: assignment?.date || "", assignmentStart: assignment?.start || "", assignmentEnd: assignment?.end || "",
-          assignmentCreditGoalKey: assignment?.creditGoalKey || "", assignmentCreditGoalLabel: assignment?.creditGoalLabel || "",
-          assignmentMeasurementNo: assignment?.measurementNo ?? null, assignmentTimingMinutes: assignment?.timingMinutes ?? null,
-          assignmentRowsIn233: assignment?.rowsIn233 ?? null, assignmentPriority: assignment?.priority || "",
-          assignmentSourceSheet: assignment?.sourceSheet || "", assignmentSourceRow: assignment?.sourceRow ?? null,
-          creditGoalKey: currentDeal, creditGoalLabel: assignment?.creditGoalLabel || currentGoal.label, operationCreditGoals: op.creditGoals || [], operationGoalRowsCount: op.goalRowsCount || null,
-          operationSourceType: op.sourceType || "base", isCustomGroup: op.sourceType === "custom_group", customGroupId: op.sourceType === "custom_group" ? op.id : "",
-          rowsCount: getOperationRowsCount(op.id),
-          plannedMinutes: op.plannedMinutes,
-          employeeId: emp.id, employeeName: emp.name, employeeRole: emp.role, employeeProfile: emp.profile,
-          startedAt: timer.startedAt, endedAt: isoNow(), durationSec: sec, durationMin: min, deviationMin: dev, deviationPercent: null,
-          checkedItems: checked,
-          checkedItemsDetailed: checkedDetailed,
-          operationItemsDetailed,
-          selectedItemsDetailed,
-          operationItemsCount: operationItemsDetailed.length,
-          selectedItemsCount: selectedItemsDetailed.length,
-          selectedItemIds: selectedItemsDetailed.map(item => item.id),
-          selectedItemNumbers: selectedItemsDetailed.map(item => item.itemNumber),
-          sessionSnapshot: { ...state.session },
-          comment: $("#measurementComment").value.trim(),
-          createdAt: isoNow()
-        };
-        state.measurements.push(measurement);
-        
+        if (!saved) {
+          return;
+        }
+
         timer = defaultTimer();
         state.measurementCommentDraft = "";
         saveTimer();
-        recordAction("measurement_saved", {
-          measurementId: measurement.id,
-          operationId: op.id,
-          employeeId: emp.id,
-          assignmentId: assignment?.id || "",
-          durationSec: sec,
-          selectedItemsCount: selectedItemsDetailed.length,
-          selectedItemIds: measurement.selectedItemIds
-        });
         document.querySelectorAll('.checklist-item-cb').forEach(c => c.checked = false);
         syncChecklistSelection(op.id);
         updateChecklistCount();
@@ -4312,17 +4822,19 @@
         let duplicateMeasurements = 0;
         const addedItemRows = [];
 
-        measurements.forEach(rawMeasurement => {
-          const normalized = analysisNormalizeMeasurement(rawMeasurement, source);
-          normalized.analysisImportedAt = importedAt;
-          if (existingMeasurementKeys.has(normalized.analysisKey)) {
-            duplicateMeasurements += 1;
-            return;
-          }
-          existingMeasurementKeys.add(normalized.analysisKey);
-          state.analysis.measurements.push(normalized);
-          addedItemRows.push(...analysisItemRowsForMeasurement(normalized));
-          addedMeasurements += 1;
+        withTemporaryOperationCatalog(root, () => {
+          measurements.forEach(rawMeasurement => {
+            const normalized = analysisNormalizeMeasurement(rawMeasurement, source);
+            normalized.analysisImportedAt = importedAt;
+            if (existingMeasurementKeys.has(normalized.analysisKey)) {
+              duplicateMeasurements += 1;
+              return;
+            }
+            existingMeasurementKeys.add(normalized.analysisKey);
+            state.analysis.measurements.push(normalized);
+            addedItemRows.push(...analysisItemRowsForMeasurement(normalized));
+            addedMeasurements += 1;
+          });
         });
 
         addedItemRows.forEach(row => state.analysis.itemSelections.push(row));
@@ -4454,6 +4966,125 @@
         downloadFile(filename, "\ufeff" + columns.join(";") + "\n" + rows.map(row => csvRow(columns.map(column => row[column]))).join("\n"));
       }
 
+      function looksLikeSessionState(value) {
+        return Boolean(
+          value &&
+          typeof value === "object" &&
+          (
+            Array.isArray(value.measurements) ||
+            Array.isArray(value.employees) ||
+            value.session ||
+            value.ui
+          )
+        );
+      }
+
+      function normalizeImportedSessionPayload(payload) {
+        const importedState = payload?.state && typeof payload.state === "object"
+          ? payload.state
+          : payload;
+
+        if (!looksLikeSessionState(importedState)) {
+          throw new Error("Некорректный формат файла сессии");
+        }
+
+        return compactStateForStorage(importedState);
+      }
+
+      function importSessionPayloadSafe(payload, fileName = "") {
+        const previousState = state;
+        const previousTimer = { ...timer };
+
+        try {
+          const importedState = normalizeImportedSessionPayload(payload);
+          const importedTimer = { ...defaultTimer(), ...(payload.timer || {}) };
+
+          state = importedState;
+          timer = importedTimer;
+
+          const action = {
+            id: uniqueId("action"),
+            type: "session_imported",
+            occurredAt: isoNow(),
+            session: { ...state.session },
+            context: {
+              view: state.ui.mobileView,
+              selectedOperationId: state.selectedOperationId,
+              selectedAssignmentId: state.selectedAssignmentId,
+              selectedEmployeeId: state.selectedEmployeeId,
+              timerStatus: timer.status
+            },
+            details: {
+              fileName,
+              measurementsCount: state.measurements.length,
+              actionLogCount: Array.isArray(state.actionLog) ? state.actionLog.length : 0,
+              importedAfterCompaction: true
+            }
+          };
+
+          state.actionLog = compactActionLog([...(state.actionLog || []), action], state.session);
+
+          const saved = saveStateSafe();
+
+          if (!saved) {
+            state = previousState;
+            timer = previousTimer;
+
+            showNotice(
+              "Импорт не выполнен: даже сжатая сессия не поместилась в память браузера. Старая сессия сохранена.",
+              "danger"
+            );
+
+            downloadEmergencyBackup({ reason: "import_failed_after_compaction" });
+            return false;
+          }
+
+          saveTimer();
+          renderAll();
+          showNotice("Сессия успешно импортирована и сжата", "success");
+          return true;
+        } catch (error) {
+          console.error("Ошибка импорта сессии", error);
+
+          state = previousState;
+          timer = previousTimer;
+
+          showNotice("Не удалось импортировать файл. Исходная сессия не изменена.", "danger");
+          return false;
+        }
+      }
+
+      function withTemporaryOperationCatalog(sourceRoot, callback) {
+        const sourceGroups = Array.isArray(sourceRoot?.customGroups) ? sourceRoot.customGroups : [];
+        const sourceItems = Array.isArray(sourceRoot?.customItems) ? sourceRoot.customItems : [];
+
+        if (!sourceGroups.length && !sourceItems.length) {
+          return callback();
+        }
+
+        const previousGroups = state.customGroups;
+        const previousItems = state.customItems;
+        const mergeById = (preferred, fallback) => {
+          const seen = new Set();
+          return [...preferred, ...fallback].filter(item => {
+            const id = item?.id || "";
+            if (!id || seen.has(id)) return false;
+            seen.add(id);
+            return true;
+          });
+        };
+
+        state.customGroups = mergeById(sourceGroups, previousGroups || []);
+        state.customItems = mergeById(sourceItems, previousItems || []);
+
+        try {
+          return callback();
+        } finally {
+          state.customGroups = previousGroups;
+          state.customItems = previousItems;
+        }
+      }
+
       function exportAnalysisJson() {
         const aggregate = buildAnalysisAggregate();
         const coverageDashboard = buildAnalysisCoverageDashboard(state.analysis?.measurements || []);
@@ -4583,6 +5214,56 @@
         downloadCsv(`${analysisExportBaseFilename()}_comments.csv`, columns, rows);
       }
       
+      const emergencyExportBtn = $("#emergencyExportBtn");
+      if (emergencyExportBtn) {
+        emergencyExportBtn.onclick = () => {
+          downloadEmergencyBackup({ reason: "manual_emergency_export" });
+        };
+      }
+
+      const compactSessionBtn = $("#compactSessionBtn");
+      if (compactSessionBtn) {
+        compactSessionBtn.onclick = () => {
+          const beforeMb = jsonSizeMb(state);
+
+          state = compactStateForStorage(state);
+
+          const saved = saveStateSafe();
+
+          if (!saved) {
+            downloadEmergencyBackup({ reason: "compact_failed" });
+            return;
+          }
+
+          const afterMb = jsonSizeMb(state);
+          showNotice(`Сессия сжата: ${beforeMb.toFixed(2)} МБ -> ${afterMb.toFixed(2)} МБ`, "success");
+          renderAll();
+        };
+      }
+
+      const exportCompactSessionBtn = $("#exportCompactSessionBtn");
+      if (exportCompactSessionBtn) {
+        exportCompactSessionBtn.onclick = () => {
+          const compactState = compactStateForStorage(state);
+
+          const payload = {
+            version: "2.0-compact",
+            type: "di-time-measurement-compact-session",
+            state: compactState,
+            timer,
+            exportedAt: isoNow(),
+            sizeMb: jsonSizeMb(compactState)
+          };
+
+          downloadFile(
+            `${exportBaseFilename()}_compact_session.json`,
+            JSON.stringify(payload, null, 2)
+          );
+
+          showNotice("Компактная сессия выгружена", "success");
+        };
+      }
+
       $("#exportCsvBtn").onclick = () => {
         recordAction("export_csv", {
           measurementsCount: state.measurements.length,
@@ -4659,7 +5340,8 @@
           "action_details_json"
         ];
         const row = (data) => columns.map(column => csvCell(data[column])).join(";");
-        const measurementRows = state.measurements.map(m => {
+        const measurementRows = state.measurements.map(rawMeasurement => {
+          const m = enrichMeasurementForExport(rawMeasurement);
           const op = operationById(m.operationId);
           const goalRows = m.operationGoalRowsCount || (op ? op.goalRowsCount : {}) || {};
           const operationCreditGoals = Array.isArray(m.operationCreditGoals)
@@ -4671,7 +5353,13 @@
           const detailed = Array.isArray(m.checkedItemsDetailed) ? m.checkedItemsDetailed : [];
           const customDetailed = detailed.filter(item => item.sourceType === "custom_item");
           const customFullItems = customDetailed.map(item => (state.customItems || []).find(x => x.id === item.id) || item);
-          const session = m.sessionSnapshot || state.session;
+          const session = m.sessionSnapshot || {
+            ...state.session,
+            auditor: m.assigneeName || state.session.auditor || state.session.assigneeName,
+            assigneeName: m.assigneeName || state.session.assigneeName,
+            assigneeKey: m.assigneeKey || state.session.assigneeKey,
+            date: m.assignmentDate || state.session.date
+          };
 
           return row({
             record_type: "measurement",
@@ -4824,25 +5512,17 @@
         reader.onload = (ev) => {
           try {
             const data = JSON.parse(ev.target.result);
-            if(data.state) {
-              state = hydrateState(data.state);
-              timer = { ...defaultTimer(), ...(data.timer || {}) };
-              saveTimer();
-              recordAction("session_imported", {
-                fileName: f.name,
-                measurementsCount: state.measurements.length,
-                actionLogCount: Array.isArray(state.actionLog) ? state.actionLog.length : 0
-              });
-              renderAll();
-              showNotice("Сессия успешно импортирована", "success");
-            } else {
-              recordAction("session_import_failed", { fileName: f.name, reason: "bad_payload" });
-              showNotice("Некорректный формат файла сессии", "danger");
-            }
+            importSessionPayloadSafe(data, f.name);
           } catch(err) {
-            recordAction("session_import_failed", { fileName: f.name, error: err.message });
+            console.error(err);
             showNotice("Ошибка при чтении JSON", "danger");
+          } finally {
+            e.target.value = "";
           }
+        };
+        reader.onerror = () => {
+          showNotice("Не удалось прочитать файл", "danger");
+          e.target.value = "";
         };
         reader.readAsText(f);
       };
@@ -4925,6 +5605,8 @@
           recordAction("session_cleared", previousStats);
           localStorage.removeItem(STORAGE_KEY);
           localStorage.removeItem(TIMER_KEY);
+          localStorage.removeItem(STORAGE_KEY + "_lastSavedAt");
+          localStorage.removeItem(STORAGE_KEY + "_lastSizeMb");
           location.reload();
         } else {
           recordAction("session_clear_cancelled");
