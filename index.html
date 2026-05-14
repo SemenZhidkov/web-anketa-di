@@ -870,6 +870,12 @@
             <h3 class="mt-4 mb-2">Дашборд общего охвата</h3>
             <div id="analysisCoverageDashboard" class="analysis-dashboard"></div>
 
+            <h3 class="mt-4 mb-2">Дашборд по этапам</h3>
+            <div id="analysisStageDashboard" class="analysis-dashboard"></div>
+
+            <h3 class="mt-4 mb-2">Этапы по целям кредита</h3>
+            <div id="analysisStageGoalDashboard" class="analysis-dashboard"></div>
+
             <div class="muted-bold mt-4">Фильтры анализа:</div>
             <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
               <label>Проверяющий <select id="analysisAuditorFilter"></select></label>
@@ -3573,6 +3579,242 @@
         };
       }
 
+      function analysisStageLabelFromOperationId(operationId) {
+        const stage = operationById(operationId)?.stage || "";
+        return stage || "Без этапа";
+      }
+
+      function analysisStageKey(value) {
+        return String(value || "Без этапа").trim() || "Без этапа";
+      }
+
+      function buildAnalysisStageDashboard(measurements = state.analysis?.measurements || []) {
+        const stageOrder = ["ФЛ", "ПИ", "КОД", "ДОП"];
+        const planned = analysisPlanAssignments();
+        const plannedById = new Map(planned.map(assignment => [assignment.id, assignment]));
+        const completedIds = new Set(
+          measurements
+            .map(measurement => measurement.assignmentId || "")
+            .filter(assignmentId => assignmentId && plannedById.has(assignmentId))
+        );
+        const stageMap = new Map();
+
+        const ensureStage = (stage) => {
+          const key = analysisStageKey(stage);
+          if (!stageMap.has(key)) {
+            stageMap.set(key, {
+              key,
+              label: key,
+              plannedAssignments: [],
+              completedAssignments: 0,
+              measurements: [],
+              plannedMinutes: 0,
+              completedMinutes: 0,
+              scopes: new Set(),
+              coveredScopes: new Set(),
+              managers: new Set(),
+              auditors: new Set()
+            });
+          }
+          return stageMap.get(key);
+        };
+
+        stageOrder.forEach(ensureStage);
+
+        planned.forEach(assignment => {
+          const stage = ensureStage(analysisStageLabelFromOperationId(assignment.operationId));
+          stage.plannedAssignments.push(assignment);
+          stage.plannedMinutes += Number(assignment.timingMinutes || 0);
+          stage.scopes.add(analysisAssignmentScopeKey(assignment));
+          if (completedIds.has(assignment.id)) {
+            stage.completedAssignments += 1;
+            stage.completedMinutes += Number(assignment.timingMinutes || 0);
+          }
+        });
+
+        measurements.forEach(measurement => {
+          const stage = ensureStage(measurement.stage || analysisStageLabelFromOperationId(measurement.operationId));
+          stage.measurements.push(measurement);
+          const scopeKey = analysisMeasurementScopeKey(measurement);
+          if (stage.scopes.has(scopeKey)) stage.coveredScopes.add(scopeKey);
+
+          const managerKey = measurement.employeeId || measurement.employeeName || "";
+          if (managerKey) stage.managers.add(measurement.employeeName || managerKey);
+          if (measurement.analysisAuditorName) stage.auditors.add(measurement.analysisAuditorName);
+        });
+
+        const rows = Array.from(stageMap.values()).map(stage => {
+          const stats = durationStats(stage.measurements);
+          return {
+            key: stage.key,
+            label: stage.label,
+            plannedTotal: stage.plannedAssignments.length,
+            completedTotal: stage.completedAssignments,
+            pendingTotal: Math.max(0, stage.plannedAssignments.length - stage.completedAssignments),
+            assignmentPercent: percentValue(stage.completedAssignments, stage.plannedAssignments.length),
+            plannedMinutes: stage.plannedMinutes,
+            completedMinutes: stage.completedMinutes,
+            minutesPercent: percentValue(stage.completedMinutes, stage.plannedMinutes),
+            measurementsCount: stage.measurements.length,
+            scopesTotal: stage.scopes.size,
+            scopesCovered: stage.coveredScopes.size,
+            scopePercent: percentValue(stage.coveredScopes.size, stage.scopes.size),
+            managersCount: stage.managers.size,
+            auditorsCount: stage.auditors.size,
+            avgSec: stats.avgSec,
+            medianSec: stats.medianSec,
+            totalSec: stats.totalSec
+          };
+        }).sort((a, b) => {
+          const aIndex = stageOrder.indexOf(a.label);
+          const bIndex = stageOrder.indexOf(b.label);
+          if (aIndex !== -1 || bIndex !== -1) {
+            return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+          }
+          return a.label.localeCompare(b.label, "ru");
+        });
+
+        const totals = rows.reduce((acc, row) => {
+          acc.plannedTotal += row.plannedTotal;
+          acc.completedTotal += row.completedTotal;
+          acc.pendingTotal += row.pendingTotal;
+          acc.measurementsCount += row.measurementsCount;
+          acc.plannedMinutes += row.plannedMinutes;
+          acc.completedMinutes += row.completedMinutes;
+          acc.totalSec += row.totalSec;
+          return acc;
+        }, {
+          plannedTotal: 0,
+          completedTotal: 0,
+          pendingTotal: 0,
+          measurementsCount: 0,
+          plannedMinutes: 0,
+          completedMinutes: 0,
+          totalSec: 0
+        });
+
+        totals.assignmentPercent = percentValue(totals.completedTotal, totals.plannedTotal);
+        totals.minutesPercent = percentValue(totals.completedMinutes, totals.plannedMinutes);
+
+        return { rows, totals };
+      }
+
+      function buildAnalysisStageGoalDashboard(measurements = state.analysis?.measurements || []) {
+        const stageOrder = ["ФЛ", "ПИ", "КОД", "ДОП"];
+        const goalOrder = CUSTOM_GOAL_KEYS;
+        const planned = analysisPlanAssignments();
+        const plannedById = new Map(planned.map(assignment => [assignment.id, assignment]));
+        const completedIds = new Set(
+          measurements
+            .map(measurement => measurement.assignmentId || "")
+            .filter(assignmentId => assignmentId && plannedById.has(assignmentId))
+        );
+        const matrix = new Map();
+
+        const matrixKey = (stage, goalKey) => `${analysisStageKey(stage)}__${goalKey || "no_goal"}`;
+        const ensureCell = (stage, goalKey) => {
+          const stageLabel = analysisStageKey(stage);
+          const safeGoalKey = goalKey || "no_goal";
+          const key = matrixKey(stageLabel, safeGoalKey);
+          if (!matrix.has(key)) {
+            matrix.set(key, {
+              key,
+              stage: stageLabel,
+              goalKey: safeGoalKey,
+              goalLabel: CREDIT_GOALS[safeGoalKey] ? getCreditGoal(safeGoalKey).label : "Цель не указана",
+              plannedAssignments: [],
+              completedAssignments: 0,
+              measurements: [],
+              plannedMinutes: 0,
+              completedMinutes: 0,
+              scopes: new Set(),
+              coveredScopes: new Set(),
+              managers: new Set(),
+              auditors: new Set()
+            });
+          }
+          return matrix.get(key);
+        };
+
+        stageOrder.forEach(stage => {
+          goalOrder.forEach(goalKey => ensureCell(stage, goalKey));
+        });
+
+        planned.forEach(assignment => {
+          const stage = analysisStageLabelFromOperationId(assignment.operationId);
+          const cell = ensureCell(stage, assignment.creditGoalKey);
+          cell.plannedAssignments.push(assignment);
+          cell.plannedMinutes += Number(assignment.timingMinutes || 0);
+          cell.scopes.add(analysisAssignmentScopeKey(assignment));
+          if (completedIds.has(assignment.id)) {
+            cell.completedAssignments += 1;
+            cell.completedMinutes += Number(assignment.timingMinutes || 0);
+          }
+        });
+
+        measurements.forEach(measurement => {
+          const stage = measurement.stage || analysisStageLabelFromOperationId(measurement.operationId);
+          const goalKey = analysisGoalKey(measurement);
+          const cell = ensureCell(stage, goalKey);
+          cell.measurements.push(measurement);
+
+          const scopeKey = analysisMeasurementScopeKey(measurement);
+          if (cell.scopes.has(scopeKey)) cell.coveredScopes.add(scopeKey);
+
+          const managerKey = measurement.employeeId || measurement.employeeName || "";
+          if (managerKey) cell.managers.add(measurement.employeeName || managerKey);
+          if (measurement.analysisAuditorName) cell.auditors.add(measurement.analysisAuditorName);
+        });
+
+        const rows = Array.from(matrix.values()).map(cell => {
+          const stats = durationStats(cell.measurements);
+          return {
+            key: cell.key,
+            stage: cell.stage,
+            goalKey: cell.goalKey,
+            goalLabel: cell.goalLabel,
+            plannedTotal: cell.plannedAssignments.length,
+            completedTotal: cell.completedAssignments,
+            pendingTotal: Math.max(0, cell.plannedAssignments.length - cell.completedAssignments),
+            assignmentPercent: percentValue(cell.completedAssignments, cell.plannedAssignments.length),
+            plannedMinutes: cell.plannedMinutes,
+            completedMinutes: cell.completedMinutes,
+            minutesPercent: percentValue(cell.completedMinutes, cell.plannedMinutes),
+            measurementsCount: cell.measurements.length,
+            scopesTotal: cell.scopes.size,
+            scopesCovered: cell.coveredScopes.size,
+            scopePercent: percentValue(cell.coveredScopes.size, cell.scopes.size),
+            managersCount: cell.managers.size,
+            auditorsCount: cell.auditors.size,
+            avgSec: stats.avgSec,
+            medianSec: stats.medianSec,
+            totalSec: stats.totalSec
+          };
+        });
+
+        const groupedByStage = stageOrder
+          .map(stage => ({
+            stage,
+            rows: rows
+              .filter(row => row.stage === stage)
+              .sort((a, b) => goalOrder.indexOf(a.goalKey) - goalOrder.indexOf(b.goalKey))
+          }))
+          .concat(
+            Array.from(new Set(rows.map(row => row.stage)))
+              .filter(stage => !stageOrder.includes(stage))
+              .sort((a, b) => a.localeCompare(b, "ru"))
+              .map(stage => ({
+                stage,
+                rows: rows
+                  .filter(row => row.stage === stage)
+                  .sort((a, b) => String(a.goalLabel).localeCompare(String(b.goalLabel), "ru"))
+              }))
+          )
+          .filter(group => group.rows.length);
+
+        return { groupedByStage };
+      }
+
       function renderCoverageBar(percent) {
         const safe = Math.max(0, Math.min(100, Number(percent) || 0));
         return `<div class="coverage-bar" aria-label="Прогресс ${safe}%" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${safe}"><div class="coverage-bar-fill" style="width:${safe}%"></div></div>`;
@@ -3777,6 +4019,115 @@
         `;
       }
 
+      function renderAnalysisStageDashboard(dashboard) {
+        const rows = dashboard.rows || [];
+        const totals = dashboard.totals || {};
+
+        if (!rows.length) {
+          $("#analysisStageDashboard").innerHTML = renderAnalysisCardEmpty(
+            "Нет данных по этапам",
+            "Импортируйте файлы сессий, чтобы увидеть разбивку по ФЛ, ПИ, КОД и ДОП."
+          );
+          return;
+        }
+
+        const stageCardsHtml = rows.map(row => {
+          const plannedSec = Math.round((row.plannedMinutes || 0) * 60);
+          const completedSec = Math.round((row.completedMinutes || 0) * 60);
+          return `
+            <div class="coverage-card">
+              <div class="coverage-card-title">${escapeHtml(row.label)}</div>
+              <div class="coverage-card-value">${row.completedTotal}/${row.plannedTotal}</div>
+              ${renderCoverageBar(row.assignmentPercent)}
+              <div class="result-stats">
+                <span class="result-stat"><strong>${row.assignmentPercent}%</strong><span>план</span></span>
+                <span class="result-stat"><strong>${row.measurementsCount}</strong><span>замеров</span></span>
+                <span class="result-stat"><strong>${row.scopesCovered}/${row.scopesTotal}</strong><span>DI-целей</span></span>
+                <span class="result-stat"><strong>${row.managersCount}</strong><span>менеджеров</span></span>
+              </div>
+              <div class="coverage-card-desc">
+                Среднее ${row.avgSec ? formatDuration(row.avgSec) : "00:00:00"}; медиана ${row.medianSec ? formatDuration(row.medianSec) : "00:00:00"}; плановое время ${formatDuration(completedSec)} / ${formatDuration(plannedSec)}.
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        $("#analysisStageDashboard").innerHTML = `
+          <div class="coverage-hero">
+            <div class="coverage-hero-top">
+              <div>
+                <div class="coverage-title">Разбивка общего охвата по ФЛ / ПИ / КОД / ДОП</div>
+                <div class="problem-desc mt-2">План считается по назначениям, факт и среднее время — по импортированным замерам.</div>
+              </div>
+              <div class="coverage-percent">${totals.assignmentPercent || 0}%</div>
+            </div>
+            ${renderCoverageBar(totals.assignmentPercent || 0)}
+            <div class="result-stats">
+              <span class="result-stat"><strong>${totals.completedTotal || 0}/${totals.plannedTotal || 0}</strong><span>назначений</span></span>
+              <span class="result-stat"><strong>${totals.pendingTotal || 0}</strong><span>осталось</span></span>
+              <span class="result-stat"><strong>${totals.measurementsCount || 0}</strong><span>замеров</span></span>
+              <span class="result-stat"><strong>${totals.minutesPercent || 0}%</strong><span>планового времени</span></span>
+            </div>
+          </div>
+
+          <div class="coverage-dashboard-grid">
+            ${stageCardsHtml}
+          </div>
+        `;
+      }
+
+      function renderAnalysisStageGoalDashboard(dashboard) {
+        const groups = dashboard.groupedByStage || [];
+
+        if (!groups.length) {
+          $("#analysisStageGoalDashboard").innerHTML = renderAnalysisCardEmpty(
+            "Нет данных по этапам и целям",
+            "Импортируйте файлы сессий, чтобы увидеть матрицу ФЛ / ПИ / КОД / ДОП по целям кредита."
+          );
+          return;
+        }
+
+        const groupCardsHtml = groups.map(group => {
+          const rowsHtml = group.rows.map(row => {
+            const plannedSec = Math.round((row.plannedMinutes || 0) * 60);
+            const completedSec = Math.round((row.completedMinutes || 0) * 60);
+            return `
+              <div class="coverage-mini-row">
+                <div class="coverage-mini-row-top">
+                  <span>${escapeHtml(row.goalLabel)}</span>
+                  <span>${row.completedTotal}/${row.plannedTotal} · ${row.assignmentPercent}%</span>
+                </div>
+                ${renderCoverageBar(row.assignmentPercent)}
+                <div class="coverage-mini-row-meta">
+                  Замеров: ${row.measurementsCount}; DI-целей: ${row.scopesCovered}/${row.scopesTotal}; менеджеров: ${row.managersCount}; ср. факт ${row.avgSec ? formatDuration(row.avgSec) : "00:00:00"}; время ${formatDuration(completedSec)} / ${formatDuration(plannedSec)}
+                </div>
+              </div>
+            `;
+          }).join("");
+
+          const plannedTotal = group.rows.reduce((sum, row) => sum + row.plannedTotal, 0);
+          const completedTotal = group.rows.reduce((sum, row) => sum + row.completedTotal, 0);
+          const measurementsCount = group.rows.reduce((sum, row) => sum + row.measurementsCount, 0);
+          const percent = percentValue(completedTotal, plannedTotal);
+
+          return `
+            <div class="coverage-card">
+              <div class="coverage-card-title">${escapeHtml(group.stage)}</div>
+              <div class="coverage-card-value">${completedTotal}/${plannedTotal}</div>
+              ${renderCoverageBar(percent)}
+              <div class="coverage-card-desc">Замеров: ${measurementsCount}; ниже разбивка этапа по целям кредита.</div>
+              <div class="coverage-mini-list mt-4">${rowsHtml}</div>
+            </div>
+          `;
+        }).join("");
+
+        $("#analysisStageGoalDashboard").innerHTML = `
+          <div class="coverage-dashboard-grid">
+            ${groupCardsHtml}
+          </div>
+        `;
+      }
+
       function renderAnalysisTab() {
         if (!state.analysis) state.analysis = defaultAnalysisState();
         const analysis = state.analysis;
@@ -3785,6 +4136,8 @@
         const filtered = analysisFilteredMeasurements();
         const aggregate = buildAnalysisAggregate(filtered);
         const coverageDashboard = buildAnalysisCoverageDashboard(all);
+        const stageDashboard = buildAnalysisStageDashboard(all);
+        const stageGoalDashboard = buildAnalysisStageGoalDashboard(all);
         const summary = aggregate.summary;
 
         renderAnalysisSelect("#analysisAuditorFilter", all.map(m => ({ value: m.analysisAuditorName || "Не указан", label: m.analysisAuditorName || "Не указан" })), filters.auditor, "Все проверяющие");
@@ -3809,6 +4162,8 @@
           ? `В аналитической базе ${all.length} замеров из ${(analysis.importedFiles || []).length} файлов. После фильтров отображается ${filtered.length} замеров.`
           : "Загрузите один или несколько JSON-файлов сессий коллег, чтобы собрать общую динамику.";
         renderAnalysisCoverageDashboard(coverageDashboard);
+        renderAnalysisStageDashboard(stageDashboard);
+        renderAnalysisStageGoalDashboard(stageGoalDashboard);
         const latestImportedFiles = (analysis.importedFiles || [])
           .slice(-5)
           .reverse()
