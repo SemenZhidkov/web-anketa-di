@@ -690,7 +690,14 @@
 
             <div class="panel mt-4 hidden" id="myCalendarPanel">
               <div class="panel-header"><h3>Мой календарь</h3></div>
-              <div class="panel-body" id="myCalendarList"></div>
+              <div class="panel-body">
+                <div class="chips-group" id="chipsCalendarDate">
+                  <div class="chip active" data-val="all">Все</div>
+                  <div class="chip" data-val="2026-05-14">14 мая</div>
+                  <div class="chip" data-val="2026-05-15">15 мая</div>
+                </div>
+                <div id="myCalendarList"></div>
+              </div>
             </div>
 
             <div id="operationsList" class="mt-4"></div>
@@ -1086,7 +1093,7 @@
         selectedEmployeeId: "",
         selectedOperationId: operations[0] ? operations[0].id : "",
         selectedAssignmentId: "",
-        filters: { search: "", stage: "all", deal: "all", status: "all", source: "all", assignmentScope: "my", assignmentStatus: "pending", progressMode: "my" }
+        filters: { search: "", stage: "all", deal: "all", status: "all", source: "all", assignmentScope: "my", assignmentStatus: "pending", progressMode: "my", calendarDate: "all" }
       });
 
       const defaultTimer = () => ({
@@ -1097,6 +1104,7 @@
       let timer = loadTimer();
       let lastNotice = null;
       let lastStorageHealthNoticeAt = 0;
+      let orphanMeasurementsNoticeShown = false;
 
       if (timer.status === "running") {
         timer.elapsedBeforePauseSec = getElapsedSec(timer);
@@ -2017,6 +2025,11 @@
         return state.measurements.some(m => m.assignmentId === assignmentId);
       }
 
+      function getOrphanMeasurements() {
+        const ids = new Set(getAllAssignments().map(a => a.id));
+        return (state.measurements || []).filter(m => m.assignmentId && !ids.has(m.assignmentId));
+      }
+
       function getAssignmentsForOperation(operationId, options = {}) {
         return getAllAssignments().filter(a => {
           if (a.operationId !== operationId) return false;
@@ -2171,9 +2184,20 @@
               state.selectedOperationId = assignment.operationId;
               if (timer.creditGoalKey && CREDIT_GOALS[timer.creditGoalKey]) state.filters.deal = timer.creditGoalKey;
               saveState();
+            } else {
+              showEmergencyExportPanel();
+              if (!orphanMeasurementsNoticeShown) {
+                orphanMeasurementsNoticeShown = true;
+                showNotice("Активный таймер связан с назначением из старого плана. Таймер сохранен, скачайте аварийную копию перед закрытием вкладки.", "warning");
+              }
             }
           }
           return;
+        }
+
+        if (state.selectedAssignmentId && !assignmentById(state.selectedAssignmentId)) {
+          state.selectedAssignmentId = "";
+          saveState();
         }
 
         const assignmentCandidate = activeAssignment();
@@ -2546,6 +2570,11 @@
           showNotice(lastNotice.msg, lastNotice.type);
           lastNotice = null;
         }
+
+        if (!orphanMeasurementsNoticeShown && getOrphanMeasurements().length > 0) {
+          orphanMeasurementsNoticeShown = true;
+          showNotice("Есть замеры, которые относятся к старому плану. Они сохранены и не удалены.", "warning");
+        }
       }
 
       function renderHeader() {
@@ -2788,27 +2817,47 @@
           list.innerHTML = `<div class="empty-note"><p class="empty-note-title">Проверяющий не выбран</p><p class="empty-note-desc">Выберите себя выше, чтобы увидеть персональный календарь.</p></div>`;
           return;
         }
-        const assignments = getAssignmentsForCurrentAssignee()
+        document.querySelectorAll("#chipsCalendarDate .chip").forEach(c => c.classList.toggle("active", c.dataset.val === (state.filters.calendarDate || "all")));
+        let assignments = getAssignmentsForCurrentAssignee()
           .filter(a => assignmentMatchesDeal(a, currentDealKey()))
           .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
+        if ((state.filters.calendarDate || "all") !== "all") {
+          assignments = assignments.filter(a => a.date === state.filters.calendarDate);
+        }
+
+        const total = assignments.length;
+        const completed = assignments.filter(a => assignmentIsCompleted(a.id)).length;
+        const pending = Math.max(0, total - completed);
+        const minutes = assignments.reduce((sum, a) => sum + Number(a.timingMinutes || 0), 0);
 
         const grouped = assignments.reduce((acc, assignment) => {
           (acc[assignment.date] ||= []).push(assignment);
           return acc;
         }, {});
 
-        list.innerHTML = Object.keys(grouped).map(date => `
+        const summaryHtml = `
+          <div class="counter-grid mb-3">
+            <div class="counter"><strong>${total}</strong><span>Всего</span></div>
+            <div class="counter"><strong>${completed}</strong><span>Выполнено</span></div>
+            <div class="counter"><strong>${pending}</strong><span>Осталось</span></div>
+            <div class="counter"><strong>${Number(minutes.toFixed(2))}</strong><span>Минут</span></div>
+          </div>
+        `;
+
+        list.innerHTML = summaryHtml + (Object.keys(grouped).map(date => `
           <div class="mb-3">
             <div class="muted-bold">${assignmentDateLabel(date)}</div>
             <div class="problem-list">
               ${grouped[date].map(a => {
+                const op = operationById(a.operationId);
+                const stage = a.stage || op?.stage || "";
                 const status = assignmentStatusLabel(a);
                 const cls = status === "выполнено" ? "complete" : ["в работе", "пауза"].includes(status) ? "partial" : "empty";
 	                return `
 	                  <div class="problem-item assignment-task" data-assignment-id="${escapeAttr(a.id)}" role="button" tabindex="0">
 	                    <div>
-	                      <div class="problem-title">${escapeHtml(a.operationId)} · ${escapeHtml(a.creditGoalLabel)} · замер ${a.measurementNo ?? '-'}</div>
-	                      <div class="problem-desc">${escapeHtml(a.operationTitle || '')}</div>
+	                      <div class="problem-title">${escapeHtml(a.start)}–${escapeHtml(a.end)} · ${escapeHtml(a.id)} · ${escapeHtml(a.operationId)} · ${escapeHtml(stage)} · ${escapeHtml(a.creditGoalLabel)} · замер ${a.measurementNo ?? '-'}</div>
+	                      <div class="problem-desc">${escapeHtml(a.operationTitle || '')}<br>${escapeHtml(a.timingMinutes || 0)} мин · ${escapeHtml(a.priority || '')}</div>
 	                    </div>
                     <button type="button" class="status-pill ${cls} select-assignment-btn" data-id="${escapeAttr(a.id)}">${status}</button>
                   </div>
@@ -2816,7 +2865,7 @@
               }).join("")}
             </div>
           </div>
-        `).join("") || `<div class="empty-note"><p class="empty-note-title">Назначений нет</p><p class="empty-note-desc">Для выбранной цели кредита в персональном пуле ничего не найдено.</p></div>`;
+        `).join("") || `<div class="empty-note"><p class="empty-note-title">Назначений нет</p><p class="empty-note-desc">Для выбранной цели кредита и даты в персональном пуле ничего не найдено.</p></div>`);
       }
 
       function renderOperationsTab() {
@@ -4782,6 +4831,9 @@
 
         const chipAssignmentStatus = e.target.closest("#chipsAssignmentStatus .chip");
         if (chipAssignmentStatus) { const previousValue = state.filters.assignmentStatus; state.filters.assignmentStatus = chipAssignmentStatus.dataset.val; recordAction("filter_updated", { field: "assignmentStatus", previousValue, value: chipAssignmentStatus.dataset.val }); renderAll(); }
+
+        const chipCalendarDate = e.target.closest("#chipsCalendarDate .chip");
+        if (chipCalendarDate) { const previousValue = state.filters.calendarDate || "all"; state.filters.calendarDate = chipCalendarDate.dataset.val; recordAction("filter_updated", { field: "calendarDate", previousValue, value: chipCalendarDate.dataset.val }); renderOperationsTab(); }
 
         const chipProgressMode = e.target.closest("#chipsProgressMode .chip");
         if (chipProgressMode) { const previousValue = state.filters.progressMode; state.filters.progressMode = chipProgressMode.dataset.val; recordAction("filter_updated", { field: "progressMode", previousValue, value: chipProgressMode.dataset.val }); renderProgressTab(); }
